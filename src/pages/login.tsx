@@ -36,7 +36,7 @@ function Login() {
 				'Bienvenido'
 			);
 
-			navigate('/menu');
+			navigate('/projects');
 
 		} catch {
 

@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 
 import Login from './pages/login';
-import Menu from './pages/menu';
+import Project from './pages/projects';
 import ProtectedRoute from './routes/protectedRoute';
 
 function App() {
@@ -14,10 +14,10 @@ function App() {
       />
 
       <Route
-  path="/menu"
+  path="/projects"
   element={
     <ProtectedRoute>
-      <Menu />
+      <Project />
     </ProtectedRoute>
   }
 />
