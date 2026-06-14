@@ -1,17 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
 
 .login-page {
+  height: 100dvh;
   min-height: 100dvh;
   min-height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   background: #f8fbff;
   font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  overflow: hidden;
 }
 
 .login-page__panel {
-  min-height: 100dvh;
-  min-height: 100svh;
+  height: 100%;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,7 +200,9 @@
 
 @media (max-width: 900px) {
   .login-page {
+    height: auto;
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .login-page__panel {
