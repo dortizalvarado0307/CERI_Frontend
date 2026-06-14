@@ -1,11 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
+
 .login-page {
+  min-height: 100dvh;
   min-height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   background: #f8fbff;
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
 }
 
 .login-page__panel {
+  min-height: 100dvh;
   min-height: 100svh;
   display: flex;
   align-items: center;
@@ -19,6 +24,7 @@
     radial-gradient(circle at center, rgba(27, 124, 255, 0.08), transparent 52%),
     linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%);
   color: #0f172a;
+  flex-direction: column;
 }
 
 .login-page__panel--auth {
@@ -30,31 +36,48 @@
 
 .login-page__info-copy {
   position: relative;
-  display: grid;
-  place-items: center;
-  max-width: none;
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 3vw, 28px);
+  max-width: min(760px, 92vw);
+  min-height: auto;
   width: 100%;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
 }
 
 .login-page__info-logo-bg {
-  position: absolute;
-  inset: 50% auto auto 50%;
+  position: static;
   width: min(720px, 92vw);
   max-height: 86svh;
   height: auto;
-  transform: translate(-50%, -50%);
   opacity: 0.16;
   filter: drop-shadow(0 22px 32px rgba(27, 124, 255, 0.16));
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+}
+
+.login-page__info-heading {
+  margin: 0;
+  text-align: center;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  line-height: 1.2;
+  max-width: 26ch;
+  color: #0f172a;
 }
 
 .login-card__eyebrow {
   margin: 0 0 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.82);
 }
 
@@ -80,6 +103,9 @@
 
 .login-card h2 {
   margin: 0;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.005em;
   font-size: clamp(1.6rem, 2.4vw, 2rem);
   line-height: 1.1;
   color: #ffffff;
@@ -89,6 +115,8 @@
   display: grid;
   gap: 10px;
   font-size: clamp(0.92rem, 1.2vw, 0.98rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -99,10 +127,13 @@
 .login-field input {
   width: 100%;
   box-sizing: border-box;
+  min-height: 48px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 16px;
   padding: clamp(14px, 2vw, 16px) clamp(16px, 2vw, 18px);
   font: inherit;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
   outline: none;
@@ -124,12 +155,14 @@
 
 .login-card__button {
   border: 0;
+  min-height: 48px;
   border-radius: 16px;
   padding: clamp(14px, 2vw, 16px) clamp(16px, 2vw, 18px);
   background: linear-gradient(135deg, #ffffff, #e8f2ff);
   color: #ffffff;
   font: inherit;
   font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
   color: #0b4db8;
   box-shadow: 0 16px 30px rgba(3, 18, 61, 0.18);
@@ -148,6 +181,21 @@
   outline-offset: 3px;
 }
 
+@media (max-width: 1200px) {
+  .login-page__panel {
+    padding: clamp(16px, 3vw, 30px);
+  }
+
+  .login-page__info-logo-bg {
+    width: min(560px, 88vw);
+    max-height: 70svh;
+  }
+
+  .login-card {
+    padding: clamp(22px, 3.2vw, 30px);
+  }
+}
+
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;
@@ -159,11 +207,17 @@
   }
 
   .login-page__panel--info {
-    min-height: 34svh;
+    min-height: 32svh;
+  }
+
+  .login-page__panel--auth {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 
   .login-page__info-copy {
-    min-height: 34svh;
+    min-height: 32svh;
+    gap: clamp(12px, 4vw, 18px);
+    padding: clamp(10px, 3vw, 16px) clamp(10px, 3vw, 20px);
   }
 
   .login-shell {
@@ -177,8 +231,14 @@
     max-height: 30svh;
   }
 
+  .login-page__info-heading {
+    font-size: clamp(1rem, 4vw, 1.3rem);
+    max-width: 22ch;
+  }
+
   .login-card {
     width: 100%;
+    box-shadow: 0 16px 36px rgba(3, 18, 61, 0.18);
   }
 
   .login-card h2 {
@@ -201,13 +261,18 @@
     opacity: 0.14;
   }
 
+  .login-page__info-heading {
+    font-size: clamp(0.95rem, 4.4vw, 1.15rem);
+  }
+
   .login-shell {
-    width: min(100%, 100%);
-    padding: 18px;
+    width: 100%;
+    padding: 16px;
   }
 
   .login-card {
     border-radius: 22px;
+    padding: 20px;
     gap: 14px;
   }
 
@@ -217,5 +282,57 @@
 
   .login-card__button {
     border-radius: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .login-page__panel--info {
+    min-height: 28svh;
+  }
+
+  .login-page__info-copy {
+    min-height: 28svh;
+  }
+
+  .login-page__info-logo-bg {
+    width: min(250px, 90vw);
+  }
+
+  .login-page__info-heading {
+    font-size: 0.92rem;
+  }
+
+  .login-shell {
+    padding: 12px;
+  }
+
+  .login-card {
+    border-radius: 18px;
+    padding: 16px;
+  }
+
+  .login-card h2 {
+    font-size: 1.35rem;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+  .login-page__panel {
+    min-height: 100svh;
+    padding: 14px;
+  }
+
+  .login-page__info-copy,
+  .login-shell {
+    min-height: auto;
+  }
+
+  .login-page__info-logo-bg {
+    max-height: 58svh;
+  }
+
+  .login-card {
+    gap: 14px;
+    padding: 20px;
   }
 }

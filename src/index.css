@@ -20,6 +20,12 @@ body,
   min-height: 100%;
 }
 
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
 }

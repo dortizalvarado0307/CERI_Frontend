@@ -12,6 +12,7 @@ function Login() {
 						aria-hidden="true"
 						className="login-page__info-logo-bg"
 					/>
+					<h1 className="login-page__info-heading">Sistema de control de proyectos</h1>
 				</div>
 			</section>
 
