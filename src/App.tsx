@@ -1,7 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
 
-import Login from './pages/login';
-import Project from './pages/projects';
+import Login from './pages/login/login';
+import PersonInCharge from './pages/personInCharge/personInCharge';
+import Project from './pages/projects/projects';
 import ProtectedRoute from './routes/protectedRoute';
 
 function App() {
@@ -10,17 +11,26 @@ function App() {
 
       <Route
         path="/"
-        element={<Login />}
+        element={<Login/>}
       />
 
       <Route
-  path="/projects"
-  element={
-    <ProtectedRoute>
-      <Project />
-    </ProtectedRoute>
-  }
-/>
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <Project />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/people"
+        element={
+          <ProtectedRoute>
+            <PersonInCharge />
+          </ProtectedRoute>
+        }
+      />
 
     </Routes>
   );

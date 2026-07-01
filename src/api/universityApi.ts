@@ -16,8 +16,17 @@ export const getUniversityBodies =
 
         const response =
             await api.get(
-                '/universityBody'
+                '/universitiesBody'
             );
-        return response.data;
-};
 
+        return response.data?.data ?? response.data ?? [];
+    };
+
+export const getUniversityById =
+    async (id: string) => {
+        const response =
+            await api.get(
+                `/universities/${id}`
+            );
+        return response.data?.data ?? response.data ?? null;
+    }
