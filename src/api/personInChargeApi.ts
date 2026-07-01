@@ -1,5 +1,5 @@
 import api from './axios';
-import type { PersonInCharge, PersonInChargeForm } from '../models/PersonInCharge';
+import type {  PersonInChargeForm } from '../models/PersonInCharge';
 
 export const getPersonInCharge =
     async () => {
