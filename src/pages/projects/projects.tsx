@@ -14,6 +14,7 @@ import type { Project, ProjectFilters } from '../../models/Project.js';
 import ProjectCreateForm from './projectCreateForm';
 
 import './projects.css';
+import './projectDetail.css';
 
 type CatalogOption = {
 	id: number;
@@ -156,6 +157,7 @@ function Projects() {
 	const [loadingProjects, setLoadingProjects] = useState(true);
 	const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
 	const [currentPage, setCurrentPage] = useState(1);
+	const [filtersExpanded, setFiltersExpanded] = useState(true);
 	const itemsPerPage = 6;
 
 	const [typeInitiatives, setTypeInitiatives] = useState<CatalogOption[]>([]);
@@ -352,12 +354,23 @@ function Projects() {
 
 				<section className="projects__filters-card">
 					<div className="projects__filters-header">
-						<div>
+						<div className="projects__filters-title-wrapper">
 							<p className="projects__eyebrow">Filtros</p>
 							<h2>Busca proyectos por catálogo</h2>
 						</div>
 
 						<div className="projects__filters-actions">
+							<button
+								type="button"
+								className="projects__toggle-filters-btn"
+								onClick={() => setFiltersExpanded(!filtersExpanded)}
+								aria-expanded={filtersExpanded}
+								aria-label={filtersExpanded ? 'Ocultar filtros' : 'Mostrar filtros'}
+							>
+								<span className="projects__toggle-filters-icon">{filtersExpanded ? '▼' : '▶'}</span>
+								<span>{filtersExpanded ? 'Ocultar' : 'Mostrar'} filtros</span>
+							</button>
+
 							<button
 								type="button"
 								className="projects__secondary-btn"
@@ -378,14 +391,19 @@ function Projects() {
 						</div>
 					</div>
 
-					<div className="projects__filters-grid">
-						<FilterSelect label="Tipo de iniciativa" placeholder="Todos" options={typeInitiatives} value={selectedTypeInitiative?.id ?? null} onChange={setSelectedTypeInitiative} />
-						<FilterSelect label="Área de gestión" placeholder="Todos" options={managementAreas} value={selectedManagementArea?.id ?? null} onChange={setSelectedManagementArea} />
-						<FilterSelect label="Meta población" placeholder="Todos" options={metaPopulations} value={selectedMetaPopulation?.id ?? null} onChange={setSelectedMetaPopulation} />
-						<FilterSelect label="Persona a cargo" placeholder="Todos" options={people} value={selectedPerson?.id ?? null} onChange={setSelectedPerson} />
-						<FilterSelect label="Unidad universitaria" placeholder="Todos" options={universityBodies} value={selectedUniversityBody?.id ?? null} onChange={setSelectedUniversityBody} />
-						<FilterSelect label="Región" placeholder="Todos" options={regions} value={selectedRegion?.id ?? null} onChange={setSelectedRegion} />
-						<FilterSelect label="Universidad" placeholder="Todos" options={universities} value={selectedUniversity?.id ?? null} onChange={setSelectedUniversity} />
+					<div 
+						className={`projects__filters-content ${filtersExpanded ? 'projects__filters-content--expanded' : ''}`}
+						style={{ display: filtersExpanded ? 'block' : 'none' }}
+					>
+						<div className="projects__filters-grid">
+							<FilterSelect label="Tipo de iniciativa" placeholder="Todos" options={typeInitiatives} value={selectedTypeInitiative?.id ?? null} onChange={setSelectedTypeInitiative} />
+							<FilterSelect label="Área de gestión" placeholder="Todos" options={managementAreas} value={selectedManagementArea?.id ?? null} onChange={setSelectedManagementArea} />
+							<FilterSelect label="Meta población" placeholder="Todos" options={metaPopulations} value={selectedMetaPopulation?.id ?? null} onChange={setSelectedMetaPopulation} />
+							<FilterSelect label="Persona a cargo" placeholder="Todos" options={people} value={selectedPerson?.id ?? null} onChange={setSelectedPerson} />
+							<FilterSelect label="Unidad universitaria" placeholder="Todos" options={universityBodies} value={selectedUniversityBody?.id ?? null} onChange={setSelectedUniversityBody} />
+							<FilterSelect label="Región" placeholder="Todos" options={regions} value={selectedRegion?.id ?? null} onChange={setSelectedRegion} />
+							<FilterSelect label="Universidad" placeholder="Todos" options={universities} value={selectedUniversity?.id ?? null} onChange={setSelectedUniversity} />
+						</div>
 					</div>
 				</section>
 
@@ -407,36 +425,53 @@ function Projects() {
 							<div className="projects__list">
 								{paginatedProjects.map(project => (
 									<div key={project.id} className="project-card">
-										<h3>{project.name}</h3>
-										<p className="project-card__objective">{project.general_objective}</p>
-										<div className="project-card__meta">
-											<span>📁 {project.type_initiative?.name}</span>
-											<span>👤 {project.person_in_charge?.name} {project.person_in_charge?.lastname}</span>
-											<span>🏛️ {project.university_body?.name}</span>
+										<div className="project-card__header">
+											<h3>{project.name}</h3>
+											<span className="project-card__badge">
+												<span className="badge__dot" />
+												{project.type_initiative?.name ?? 'Iniciativa'}
+											</span>
 										</div>
-										<div className="project-card__tags">
-											<span>{project.classification_management_area?.name}</span>
-											<span>{project.clasification_meta_population?.name}</span>
+
+										<div className="project-card__body">
+											<p className="project-card__objective">{project.general_objective}</p>
+
+											<div className="project-card__meta">
+												<div className="project-card__meta-item">
+													👤 {project.person_in_charge ? `${project.person_in_charge.name} ${project.person_in_charge.lastname}` : 'Sin asignar'}
+												</div>
+												<div className="project-card__meta-item">
+													🏛️ {project.university_body?.name ?? 'Sin unidad'}
+												</div>
+											</div>
+
+											<div className="project-card__tags">
+												<span className="badge badge--primary">{project.classification_management_area?.name ?? 'Sin área'}</span>
+												<span className="badge badge--warning">{project.clasification_meta_population?.name ?? 'Sin meta'}</span>
+											</div>
+
+											<div className="project-card__regions">
+												<strong>📍 Regiones</strong>
+												<ul>
+													{project.projects_commissions_region?.map(regionItem => (
+														<li key={regionItem.region.id}>{regionItem.region.name}</li>
+													)) ?? <li>Sin regiones</li>}
+												</ul>
+											</div>
+
+											<div className="project-card__universities">
+												<strong>🎓 Universidades</strong>
+												<ul>
+													{project.projects_commissions_university?.map(universityItem => (
+														<li key={universityItem.university.id}>{universityItem.university.name}</li>
+													)) ?? <li>Sin universidades</li>}
+												</ul>
+											</div>
 										</div>
-										<div className="project-card__regions">
-											<strong>Regiones</strong>
-											<ul>
-												{project.projects_commissions_region?.map(regionItem => (
-													<li key={regionItem.region.id}>{regionItem.region.name}</li>
-												))}
-											</ul>
-										</div>
-										<div className="project-card__universities">
-											<strong>Universidades</strong>
-											<ul>
-												{project.projects_commissions_university?.map(universityItem => (
-													<li key={universityItem.university.id}>{universityItem.university.name}</li>
-												))}
-											</ul>
-										</div>
+
 										<div className="project-card__actions">
 											<button type="button" className="project-card__action project-card__action--detail" onClick={() => setSelectedProject(project)}>
-												Ver Detalle
+												👁 Ver Detalle
 											</button>
 
 											<button
@@ -447,7 +482,7 @@ function Projects() {
 												}}
 												className="project-card__action project-card__action--edit"
 											>
-												Editar
+												✏️ Editar
 											</button>
 
 											<button
@@ -456,7 +491,7 @@ function Projects() {
 												disabled={deletingProjectId === project.id}
 												className="project-card__action project-card__action--delete"
 											>
-												{deletingProjectId === project.id ? 'Eliminando...' : 'Eliminar'}
+												{deletingProjectId === project.id ? '⏳ Eliminando...' : '🗑️ Eliminar'}
 											</button>
 										</div>
 									</div>
@@ -465,14 +500,14 @@ function Projects() {
 
 							{filteredProjects.length > itemsPerPage && (
 								<div className="projects__pagination">
-									<button type="button" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1}>
-										Anterior
+									<button type="button" className="projects__pagination-btn" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1}>
+										← Anterior
 									</button>
 
-									<span>Página {currentPage} de {totalPages}</span>
+									<span className="projects__pagination-info">Página {currentPage} de {totalPages}</span>
 
-									<button type="button" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
-										Siguiente
+									<button type="button" className="projects__pagination-btn" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
+										Siguiente →
 									</button>
 								</div>
 							)}
@@ -499,61 +534,87 @@ function Projects() {
 						<div className="project-detail__header">
 							<div>
 								<p className="project-detail__eyebrow">Detalle del proyecto</p>
-								<h2>{selectedProject.name}</h2>
+								<h2 className="project-detail__title">{selectedProject.name}</h2>
 							</div>
 							<button type="button" className="project-detail__close" onClick={() => setSelectedProject(null)}>
 								Cerrar
 							</button>
 						</div>
 
-						<div className="project-detail__grid">
-							<section className="project-detail__section project-detail__section--wide">
-								<h3>Objetivo general</h3>
-								<p>{selectedProject.general_objective}</p>
-							</section>
+						<div className="project-detail__body">
+							<div className="project-detail__grid">
+								<section className="project-detail__section project-detail__section--wide">
+									<h3>Objetivo general</h3>
+									<p className="project-detail__objective">{selectedProject.general_objective}</p>
+								</section>
 
-							<section className="project-detail__section">
-								<h3>Datos principales</h3>
-								<ul>
-									<li><strong>Tipo de iniciativa:</strong> {selectedProject.type_initiative?.name ?? 'Sin dato'}</li>
-									<li><strong>Área de gestión:</strong> {selectedProject.classification_management_area?.name ?? 'Sin dato'}</li>
-									<li><strong>Meta población:</strong> {selectedProject.clasification_meta_population?.name ?? 'Sin dato'}</li>
-								</ul>
-							</section>
+								<section className="project-detail__section">
+									<h3>Datos principales</h3>
+									<div className="project-detail__card">
+										<div className="project-detail__card-item">
+											<span className="project-detail__card-label">Tipo de iniciativa:</span>
+											<span className="project-detail__card-value">{selectedProject.type_initiative?.name ?? 'Sin dato'}</span>
+										</div>
+										<div className="project-detail__card-item">
+											<span className="project-detail__card-label">Área de gestión:</span>
+											<span className="project-detail__card-value">{selectedProject.classification_management_area?.name ?? 'Sin dato'}</span>
+										</div>
+										<div className="project-detail__card-item">
+											<span className="project-detail__card-label">Meta población:</span>
+											<span className="project-detail__card-value">{selectedProject.clasification_meta_population?.name ?? 'Sin dato'}</span>
+										</div>
+									</div>
+								</section>
 
-							<section className="project-detail__section">
-								<h3>Responsables</h3>
-								<ul>
-									<li><strong>Persona a cargo:</strong> {selectedProject.person_in_charge ? `${selectedProject.person_in_charge.name} ${selectedProject.person_in_charge.lastname}` : 'Sin dato'}</li>
-									<li><strong>Unidad universitaria:</strong> {selectedProject.university_body?.name ?? 'Sin dato'}</li>
-								</ul>
-							</section>
+								<section className="project-detail__section">
+									<h3>Responsables</h3>
+									<div className="project-detail__card">
+										<div className="project-detail__card-item">
+											<span className="project-detail__card-label">Persona a cargo:</span>
+											<span className="project-detail__card-value">{selectedProject.person_in_charge ? `${selectedProject.person_in_charge.name} ${selectedProject.person_in_charge.lastname}` : 'Sin dato'}</span>
+										</div>
+										<div className="project-detail__card-item">
+											<span className="project-detail__card-label">Unidad universitaria:</span>
+											<span className="project-detail__card-value">{selectedProject.university_body?.name ?? 'Sin dato'}</span>
+										</div>
+									</div>
+								</section>
 
-							<section className="project-detail__section">
-								<h3>Regiones</h3>
-								{selectedProject.projects_commissions_region?.length ? (
-									<ul className="project-detail__list">
-										{selectedProject.projects_commissions_region.map(item => (
-											<li key={item.id}>{item.region.name}</li>
-										))}
-									</ul>
-								) : (
-									<p>Sin regiones asociadas.</p>
-								)}
-							</section>
+								<section className="project-detail__section project-detail__section--wide">
+									<h3>Clasificaciones</h3>
+									<div className="project-detail__tags">
+										<span className="project-detail__tag">{selectedProject.classification_management_area?.name}</span>
+										<span className="project-detail__tag">{selectedProject.clasification_meta_population?.name}</span>
+										<span className="project-detail__tag">{selectedProject.type_initiative?.name}</span>
+									</div>
+								</section>
 
-							<section className="project-detail__section">
-								<h3>Universidades</h3>
-								{selectedProject.projects_commissions_university?.length ? (
-									<ul className="project-detail__list">
-										{selectedProject.projects_commissions_university.map(item => (
-											<li key={item.id}>{item.university.name}</li>
-										))}
-									</ul>
-								) : (
-									<p>Sin universidades asociadas.</p>
-								)}
-							</section>
+								<section className="project-detail__section">
+									<h3>Regiones</h3>
+									{selectedProject.projects_commissions_region?.length ? (
+										<ul className="project-detail__list">
+											{selectedProject.projects_commissions_region.map(item => (
+												<li key={item.id}>{item.region.name}</li>
+											))}
+										</ul>
+									) : (
+										<p className="project-detail__empty">Sin regiones asociadas.</p>
+									)}
+								</section>
+
+								<section className="project-detail__section">
+									<h3>Universidades</h3>
+									{selectedProject.projects_commissions_university?.length ? (
+										<ul className="project-detail__list">
+											{selectedProject.projects_commissions_university.map(item => (
+												<li key={item.id}>{item.university.name}</li>
+											))}
+										</ul>
+									) : (
+										<p className="project-detail__empty">Sin universidades asociadas.</p>
+									)}
+								</section>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -21,6 +21,7 @@ function PersonInChargePage() {
   const [formOpen, setFormOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState<PersonInChargeForm>(initialFormState);
+  const [formErrors, setFormErrors] = useState<Partial<PersonInChargeForm>>({});
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -59,6 +60,36 @@ function PersonInChargePage() {
     }
   }, [currentPage, totalPages]);
 
+  // Validaciones
+  const validateField = (name: string, value: string): string | null => {
+    switch (name) {
+      case 'name':
+        if (!value.trim()) return 'El nombre es requerido';
+        if (value.trim().length < 2) return 'El nombre debe tener al menos 2 caracteres';
+        if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s]+$/.test(value)) return 'El nombre solo puede contener letras';
+        if (value.length > 50) return 'El nombre no puede exceder 50 caracteres';
+        return null;
+
+      case 'lastname':
+        if (!value.trim()) return 'Los apellidos son requeridos';
+        if (value.trim().length < 2) return 'Los apellidos deben tener al menos 2 caracteres';
+        if (!/^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s]+$/.test(value)) return 'Los apellidos solo pueden contener letras';
+        if (value.length > 100) return 'Los apellidos no pueden exceder 100 caracteres';
+        return null;
+
+      case 'contact':
+        if (!value.trim()) return 'El contacto es requerido';
+        const digitsOnly = value.replace(/\D/g, '');
+        if (digitsOnly.length < 8) return 'El contacto debe tener al menos 8 dígitos';
+        if (digitsOnly.length > 15) return 'El contacto no puede exceder 15 dígitos';
+        if (!/^[\d+\-\s()]+$/.test(value)) return 'Formato de contacto inválido';
+        return null;
+
+      default:
+        return null;
+    }
+  };
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
 
@@ -68,17 +99,53 @@ function PersonInChargePage() {
     }));
   };
 
+  const handleBlur = () => {
+    // No validar en blur, solo al hacer submit
+  };
+
   const resetForm = () => {
     setFormData(initialFormState);
+    setFormErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Partial<PersonInChargeForm> = {};
+    let isValid = true;
+
+    // Validar todos los campos
+    (['name', 'lastname', 'contact'] as const).forEach(field => {
+      const error = validateField(field, formData[field] || '');
+      if (error) {
+        errors[field] = error;
+        isValid = false;
+      }
+    });
+
+    setFormErrors(errors);
+
+    return isValid;
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    // Validar formulario completo
+    if (!validateForm()) {
+      toast.error('Por favor corrige los errores en el formulario');
+      return;
+    }
+
     try {
       setSaving(true);
 
-      await createPersonInCharge(formData);
+      // Datos normalizados
+      const normalizedData: PersonInChargeForm = {
+        name: formData.name.trim(),
+        lastname: formData.lastname.trim(),
+        contact: formData.contact.replace(/\D/g, ''), // Solo dígitos
+      };
+
+      await createPersonInCharge(normalizedData);
 
       toast.success('Persona agregada correctamente');
       resetForm();
@@ -135,9 +202,19 @@ function PersonInChargePage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Nombre"
-                  required
+                  onBlur={handleBlur}
+                  placeholder=" "
+                  minLength={2}
+                  maxLength={50}
+                  pattern="^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s]+$"
+                  aria-invalid={!!formErrors.name}
+                  aria-describedby={formErrors.name ? 'name-error' : undefined}
                 />
+                {formErrors.name && (
+                  <span className="people-form__error" id="name-error" role="alert">
+                    {formErrors.name}
+                  </span>
+                )}
               </label>
 
               <label>
@@ -147,21 +224,41 @@ function PersonInChargePage() {
                   name="lastname"
                   value={formData.lastname}
                   onChange={handleChange}
-                  placeholder="Apellidos"
-                  required
+                  onBlur={handleBlur}
+                  placeholder=" "
+                  minLength={2}
+                  maxLength={100}
+                  pattern="^[a-zA-ZÁÉÍÓÚáéíóúÑñ\s]+$"
+                  aria-invalid={!!formErrors.lastname}
+                  aria-describedby={formErrors.lastname ? 'lastname-error' : undefined}
                 />
+                {formErrors.lastname && (
+                  <span className="people-form__error" id="lastname-error" role="alert">
+                    {formErrors.lastname}
+                  </span>
+                )}
               </label>
 
               <label>
                 <span>Contacto</span>
                 <input
-                  type="text"
+                  type="tel"
                   name="contact"
                   value={formData.contact}
                   onChange={handleChange}
-                  placeholder="Contacto"
-                  required
+                  onBlur={handleBlur}
+                  placeholder=" "
+                  pattern="^[0-9+\-\s()]+$"
+                  minLength={8}
+                  maxLength={15}
+                  aria-invalid={!!formErrors.contact}
+                  aria-describedby={formErrors.contact ? 'contact-error' : undefined}
                 />
+                {formErrors.contact && (
+                  <span className="people-form__error" id="contact-error" role="alert">
+                    {formErrors.contact}
+                  </span>
+                )}
               </label>
 
               <div className="people-form__actions">
@@ -173,7 +270,7 @@ function PersonInChargePage() {
                     setFormOpen(false);
                   }}
                 >
-                  Cancelar
+                  ✕ Cancelar
                 </button>
 
                 <button
@@ -181,7 +278,15 @@ function PersonInChargePage() {
                   className="people-form__primary"
                   disabled={saving}
                 >
-                  {saving ? 'Guardando...' : 'Guardar persona'}
+                  {saving ? (
+                    <>
+                      <span className="spinner spinner--small" /> Guardando...
+                    </>
+                  ) : (
+                    <>
+                      ✓ Guardar persona
+                    </>
+                  )}
                 </button>
               </div>
             </form>

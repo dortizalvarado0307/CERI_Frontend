@@ -39,6 +39,8 @@ const initialForm: ProjectForm = {
 	universities: [],
 };
 
+type FormErrors = Partial<Record<keyof ProjectForm, string>>;
+
 const getOptionLabel = (option: CatalogOption) =>
 	option.lastname
 		? `${option.name} ${option.lastname}`
@@ -82,6 +84,7 @@ type AutocompleteFieldProps = {
 	value: number | null;
 	onChange: (option: CatalogOption | null) => void;
 	helpText?: string;
+	error?: string;
 };
 
 function SelectField({
@@ -90,6 +93,7 @@ function SelectField({
 	value,
 	onChange,
 	helpText,
+	error,
 	}: AutocompleteFieldProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [query, setQuery] = useState('');
@@ -144,7 +148,7 @@ function SelectField({
 	);
 
 	return (
-		<div className="project-create__field">
+		<div className={`project-create__field ${error ? 'project-create__field--error' : ''}`}>
 			<label className="project-create__label">
 				<span>{label}</span>
 			</label>
@@ -154,6 +158,7 @@ function SelectField({
 					type="button"
 					className={`project-create__select ${selectedOption ? 'project-create__select--filled' : ''}`}
 					onClick={() => setIsOpen(open => !open)}
+					aria-invalid={!!error}
 				>
 					<span className="project-create__select-value">
 						{selectedOption ? getOptionLabel(selectedOption) : 'Selecciona una opción'}
@@ -205,7 +210,12 @@ function SelectField({
 					)}
 			</div>
 
-			{helpText && <p className="project-create__help">{helpText}</p>}
+			{error && (
+				<span className="project-create__error" role="alert">
+					⚠ {error}
+				</span>
+			)}
+			{helpText && !error && <p className="project-create__help">{helpText}</p>}
 		</div>
 	);
 }
@@ -217,6 +227,7 @@ type CheckboxMultiFieldProps = {
 	selected: CatalogOption[];
 	onToggle: (option: CatalogOption, checked: boolean) => void;
 	helpText?: string;
+	error?: string;
 };
 
 function CheckboxMultiField({
@@ -226,6 +237,7 @@ function CheckboxMultiField({
 	selected,
 	onToggle,
 	helpText,
+	error,
 }: CheckboxMultiFieldProps) {
 	const [query, setQuery] = useState('');
 
@@ -239,7 +251,7 @@ function CheckboxMultiField({
 	);
 
 	return (
-		<div className="project-create__field project-create__field--full">
+		<div className={`project-create__field project-create__field--full ${error ? 'project-create__field--error' : ''}`}>
 			<label className="project-create__label">
 				<span>{label}</span>
 				<input
@@ -277,22 +289,20 @@ function CheckboxMultiField({
 				})}
 			</div>
 
-			{helpText && <p className="project-create__help">{helpText}</p>}
+			{error && (
+				<span className="project-create__error" role="alert">
+					⚠ {error}
+				</span>
+			)}
+			{helpText && !error && <p className="project-create__help">{helpText}</p>}
 		</div>
 	);
 }
 
 function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormProps) {
 	const [form, setForm] = useState<ProjectForm>(initialForm);
-	const [saving, setSaving] = useState(false);
 	const [loadingCatalogs, setLoadingCatalogs] = useState(true);
-	const [typeInitiatives, setTypeInitiatives] = useState<CatalogOption[]>([]);
-	const [managementAreas, setManagementAreas] = useState<CatalogOption[]>([]);
-	const [metaPopulations, setMetaPopulations] = useState<CatalogOption[]>([]);
-	const [people, setPeople] = useState<CatalogOption[]>([]);
-	const [universityBodies, setUniversityBodies] = useState<CatalogOption[]>([]);
-	const [regions, setRegions] = useState<CatalogOption[]>([]);
-	const [universities, setUniversities] = useState<CatalogOption[]>([]);
+	const [saving, setSaving] = useState(false);
 	const [selectedTypeInitiative, setSelectedTypeInitiative] = useState<CatalogOption | null>(null);
 	const [selectedManagementArea, setSelectedManagementArea] = useState<CatalogOption | null>(null);
 	const [selectedMetaPopulation, setSelectedMetaPopulation] = useState<CatalogOption | null>(null);
@@ -300,7 +310,15 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 	const [selectedUniversityBody, setSelectedUniversityBody] = useState<CatalogOption | null>(null);
 	const [selectedRegions, setSelectedRegions] = useState<CatalogOption[]>([]);
 	const [selectedUniversities, setSelectedUniversities] = useState<CatalogOption[]>([]);
+	const [typeInitiatives, setTypeInitiatives] = useState<CatalogOption[]>([]);
+	const [managementAreas, setManagementAreas] = useState<CatalogOption[]>([]);
+	const [metaPopulations, setMetaPopulations] = useState<CatalogOption[]>([]);
+	const [people, setPeople] = useState<CatalogOption[]>([]);
+	const [universityBodies, setUniversityBodies] = useState<CatalogOption[]>([]);
+	const [regions, setRegions] = useState<CatalogOption[]>([]);
+	const [universities, setUniversities] = useState<CatalogOption[]>([]);
 	const [idUser, setIdUser] = useState<number | null>(null);
+	const [formErrors, setFormErrors] = useState<FormErrors>({});
 	const isEditMode = Boolean(project);
 
 	useEffect(() => {
@@ -401,6 +419,26 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 		universities,
 	]);
 
+	// Validaciones
+	const validateField = (name: string, value: string): string | null => {
+		switch (name) {
+			case 'name':
+				if (!value.trim()) return 'El nombre del proyecto es requerido';
+				if (value.trim().length < 5) return 'El nombre debe tener al menos 5 caracteres';
+				if (value.length > 150) return 'El nombre no puede exceder 150 caracteres';
+				return null;
+
+			case 'general_objective':
+				if (!value.trim()) return 'El objetivo general es requerido';
+				if (value.trim().length < 20) return 'El objetivo debe tener al menos 20 caracteres';
+				if (value.length > 2000) return 'El objetivo no puede exceder 2000 caracteres';
+				return null;
+
+			default:
+				return null;
+		}
+	};
+
 	const handleFieldChange = (
 		event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
 	) => {
@@ -409,40 +447,98 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 			...current,
 			[name]: value,
 		}));
+		// No validar mientras se escribe
+	};
+
+	const handleFieldBlur = () => {
+		// No validar en blur, solo al hacer submit
+	};
+
+	const validateForm = (): boolean => {
+		const errors: FormErrors = {};
+		let isValid = true;
+
+		// Validar campos de texto
+		const nameError = validateField('name', form.name);
+		if (nameError) {
+			errors.name = nameError;
+			isValid = false;
+		}
+
+		const objectiveError = validateField('general_objective', form.general_objective);
+		if (objectiveError) {
+			errors.general_objective = objectiveError;
+			isValid = false;
+		}
+
+		// Validar selects requeridos
+		if (!selectedTypeInitiative) {
+			errors.id_type_initiative = 'Selecciona el tipo de iniciativa';
+			isValid = false;
+		}
+		if (!selectedManagementArea) {
+			errors.id_classification_management_area = 'Selecciona el área de gestión';
+			isValid = false;
+		}
+		if (!selectedMetaPopulation) {
+			errors.id_clasification_meta_population = 'Selecciona la meta población';
+			isValid = false;
+		}
+		if (!selectedPerson) {
+			errors.id_person_in_charge = 'Selecciona la persona a cargo';
+			isValid = false;
+		}
+		if (!selectedUniversityBody) {
+			errors.id_university_body = 'Selecciona la unidad universitaria';
+			isValid = false;
+		}
+		if (selectedRegions.length === 0) {
+			errors.regions = 'Selecciona al menos una región';
+			isValid = false;
+		}
+		if (selectedUniversities.length === 0) {
+			errors.universities = 'Selecciona al menos una universidad';
+			isValid = false;
+		}
+
+		setFormErrors(errors);
+
+		return isValid;
 	};
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
-		if (
-			!selectedTypeInitiative ||
-			!selectedManagementArea ||
-			!selectedMetaPopulation ||
-			!selectedPerson ||
-			!selectedUniversityBody ||
-			selectedRegions.length === 0 ||
-			selectedUniversities.length === 0 ||
-			!idUser
-		) {
-			toast.error('Completa todos los campos antes de guardar');
+		// Validar formulario completo
+		if (!validateForm()) {
+			toast.error('Por favor corrige los errores en el formulario');
+			// Scroll al inicio del formulario para ver los errores
+			const formElement = document.querySelector('.project-create__form');
+			formElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			return;
 		}
 
+		if (!idUser) {
+			toast.error('Error de autenticación. Inicia sesión nuevamente.');
+			return;
+		}
+
+		// Cast seguro porque ya validamos que no son null
+		const payload: ProjectForm = {
+			name: form.name.trim(),
+			general_objective: form.general_objective.trim(),
+			id_type_initiative: selectedTypeInitiative!.id,
+			id_classification_management_area: selectedManagementArea!.id,
+			id_clasification_meta_population: selectedMetaPopulation!.id,
+			id_person_in_charge: selectedPerson!.id,
+			id_university_body: selectedUniversityBody!.id,
+			id_user: idUser,
+			regions: selectedRegions.map(region => region.id),
+			universities: selectedUniversities.map(university => university.id),
+		};
+
 		try {
 			setSaving(true);
-
-			const payload: ProjectForm = {
-				name: form.name.trim(),
-				general_objective: form.general_objective.trim(),
-				id_type_initiative: selectedTypeInitiative.id,
-				id_classification_management_area: selectedManagementArea.id,
-				id_clasification_meta_population: selectedMetaPopulation.id,
-				id_person_in_charge: selectedPerson.id,
-				id_university_body: selectedUniversityBody.id,
-				id_user: idUser,
-				regions: selectedRegions.map(region => region.id),
-				universities: selectedUniversities.map(university => university.id),
-			};
 
 			if (project) {
 				await updateProject(project.id, payload);
@@ -456,7 +552,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 			onClose();
 		} catch (error) {
 			console.error(error);
-			toast.error('No se pudo crear el proyecto');
+			toast.error('No se pudo guardar el proyecto');
 		} finally {
 			setSaving(false);
 		}
@@ -484,15 +580,24 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 					<form className="project-create__form" onSubmit={handleSubmit}>
 						<div className="project-create__field">
 							<label className="project-create__label">
-								<span>Nombre</span>
+								<span>Nombre del proyecto</span>
 								<input
 									type="text"
 									name="name"
 									value={form.name}
 									onChange={handleFieldChange}
-									placeholder="Nombre del proyecto"
-									required
+									onBlur={handleFieldBlur}
+									placeholder="Ej: Programa de vinculación con la comunidad"
+									minLength={5}
+									maxLength={150}
+									aria-invalid={!!formErrors.name}
+									aria-describedby={formErrors.name ? 'name-error' : undefined}
 								/>
+								{formErrors.name && (
+									<span className="project-create__error" id="name-error" role="alert">
+										⚠ {formErrors.name}
+									</span>
+								)}
 							</label>
 						</div>
 
@@ -503,9 +608,21 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 									name="general_objective"
 									value={form.general_objective}
 									onChange={handleFieldChange}
-									placeholder="Describe el objetivo general"
-									required
+									onBlur={handleFieldBlur}
+									placeholder="Describe el objetivo general del proyecto (mínimo 20 caracteres)"
+									minLength={20}
+									maxLength={2000}
+									aria-invalid={!!formErrors.general_objective}
+									aria-describedby={formErrors.general_objective ? 'objective-error' : undefined}
 								/>
+								{formErrors.general_objective && (
+									<span className="project-create__error" id="objective-error" role="alert">
+										⚠ {formErrors.general_objective}
+									</span>
+								)}
+								<span className="project-create__help">
+									{form.general_objective.length}/2000 caracteres
+								</span>
 							</label>
 						</div>
 
@@ -514,6 +631,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							options={typeInitiatives}
 							value={selectedTypeInitiative?.id ?? null}
 							onChange={setSelectedTypeInitiative}
+							error={formErrors.id_type_initiative}
 						/>
 
 						<SelectField
@@ -521,6 +639,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							options={managementAreas}
 							value={selectedManagementArea?.id ?? null}
 							onChange={setSelectedManagementArea}
+							error={formErrors.id_classification_management_area}
 						/>
 
 						<SelectField
@@ -528,6 +647,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							options={metaPopulations}
 							value={selectedMetaPopulation?.id ?? null}
 							onChange={setSelectedMetaPopulation}
+							error={formErrors.id_clasification_meta_population}
 						/>
 
 						<SelectField
@@ -535,6 +655,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							options={people}
 							value={selectedPerson?.id ?? null}
 							onChange={setSelectedPerson}
+							error={formErrors.id_person_in_charge}
 						/>
 
 						<SelectField
@@ -542,6 +663,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							options={universityBodies}
 							value={selectedUniversityBody?.id ?? null}
 							onChange={setSelectedUniversityBody}
+							error={formErrors.id_university_body}
 						/>
 
 						<CheckboxMultiField
@@ -555,6 +677,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 									: current.filter(item => item.id !== region.id)
 								)
 							}
+							error={formErrors.regions}
 						/>
 
 						<CheckboxMultiField
@@ -568,6 +691,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 									: current.filter(item => item.id !== university.id)
 								)
 							}
+							error={formErrors.universities}
 						/>
 
 						<div className="project-create__actions">
