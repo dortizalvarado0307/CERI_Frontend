@@ -1,73 +1,62 @@
-# React + TypeScript + Vite
+# CERI - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de control de proyectos de vinculación con la comunidad.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 + TypeScript 6
+- Vite 8
+- React Router 7
+- Axios
+- Sonner (notificaciones)
 
-## React Compiler
+## Requisitos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 18+
+- Backend CERI ejecutándose
 
-## Expanding the ESLint configuration
+## Instalación
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Variables de entorno
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copiar `.env.example` a `.env` y configurar:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+VITE_API_URL=http://localhost:3000/api
+```
+
+## Scripts
+
+- `npm run dev` — Servidor de desarrollo
+- `npm run build` — Build de producción (tsc + vite)
+- `npm run lint` — ESLint
+- `npm run preview` — Preview del build
+
+## Estructura
+
+```
+src/
+  api/          - Clientes API (axios)
+  assets/       - Imágenes y logos
+  components/   - Componentes compartidos (Layout, Sidebar)
+  components/ui/- Componentes UI reutilizables (DarkModeToggle)
+  hooks/        - Hooks custom (useModalFocus)
+  models/       - Interfaces TypeScript (Project, PersonInCharge)
+  pages/        - Páginas (login, projects, personInCharge)
+  routes/       - Rutas protegidas
+  styles/       - Variables CSS, tema, componentes base
+```
+
+## Funcionalidades
+
+- Autenticación con JWT
+- CRUD de proyectos de vinculación
+- Gestión de personas a cargo
+- Filtros por catálogos (región, universidad, tipo de iniciativa, etc.)
+- Modo oscuro manual
+- Validaciones de formulario
+- Diseño responsive

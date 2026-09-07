@@ -1,30 +1,22 @@
 import {
 	useEffect,
-	useMemo,
 	useRef,
 	useState,
 	type ChangeEvent,
 	type FormEvent,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 
 import { createProject, updateProject } from '../../api/projectApi';
-import { gettypeInitiative } from '../../api/typeInitiative';
-import { getclassificationManagementArea } from '../../api/clasificationManagementAreaApi';
-import { getClassificationMetaPopulation } from '../../api/clasificationMetaPopulationApi';
-import { getPersonInCharge } from '../../api/personInChargeApi';
-import { getRegion } from '../../api/regionApi';
-import { getUniversities, getUniversityBodies } from '../../api/universityApi';
 import type { Project, ProjectForm } from '../../models/Project';
+import type { CatalogOption } from '../../models/CatalogOption';
+import { useModalFocus } from '../../hooks/useModalFocus';
+import { useAuth } from '../../context/AuthContext';
+import { useCatalogs } from '../../hooks/useCatalogs';
+import { AutocompleteSelect } from '../../components/ui/AutocompleteSelect';
+import { CheckboxMultiField } from '../../components/ui/CheckboxMultiField';
 
 import './projectCreateForm.css';
-
-type CatalogOption = {
-	id: number;
-	name: string;
-	lastname?: string;
-};
 
 type ProjectCreateFormProps = {
 	onClose: () => void;
@@ -35,273 +27,22 @@ type ProjectCreateFormProps = {
 const initialForm: ProjectForm = {
 	name: '',
 	general_objective: '',
+	codigo: '',
+	fecha_inicio: '',
+	fecha_fin: '',
 	regions: [],
 	universities: [],
 };
 
 type FormErrors = Partial<Record<keyof ProjectForm, string>>;
 
-const getOptionLabel = (option: CatalogOption) =>
-	option.lastname
-		? `${option.name} ${option.lastname}`
-		: option.name;
-
-const decodeUserIdFromToken = () => {
-	const token = localStorage.getItem('token');
-
-	if (!token) {
-		return null;
-	}
-
-	const parts = token.split('.');
-
-	if (parts.length < 2) {
-		return null;
-	}
-
-	try {
-		const payload = JSON.parse(
-			atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
-		);
-		const candidate =
-			payload.id_user ??
-			payload.userId ??
-			payload.id ??
-			payload.sub;
-		const parsed = Number(candidate);
-
-		return Number.isFinite(parsed)
-			? parsed
-			: null;
-	} catch {
-		return null;
-	}
+const toDateInputValue = (date: string | Date | null | undefined): string => {
+	if (!date) return '';
+	return new Date(date).toISOString().split('T')[0];
 };
-
-type AutocompleteFieldProps = {
-	label: string;
-	options: CatalogOption[];
-	value: number | null;
-	onChange: (option: CatalogOption | null) => void;
-	helpText?: string;
-	error?: string;
-};
-
-function SelectField({
-	label,
-	options,
-	value,
-	onChange,
-	helpText,
-	error,
-	}: AutocompleteFieldProps) {
-	const [isOpen, setIsOpen] = useState(false);
-	const [query, setQuery] = useState('');
-	const controlRef = useRef<HTMLDivElement | null>(null);
-	const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
-	const updateDropdownPosition = () => {
-		if (!controlRef.current) {
-			return;
-		}
-
-		const rect = controlRef.current.getBoundingClientRect();
-		setDropdownPosition({
-			top: rect.bottom + 6,
-			left: rect.left,
-			width: rect.width,
-		});
-	};
-
-	const selectedOption = useMemo(
-		() => options.find(option => option.id === value) ?? null,
-		[options, value]
-	);
-
-	useEffect(() => {
-		setQuery(selectedOption ? getOptionLabel(selectedOption) : '');
-		setIsOpen(false);
-	}, [selectedOption]);
-
-	useEffect(() => {
-		if (!isOpen || !controlRef.current) {
-			return;
-		}
-
-		updateDropdownPosition();
-
-		window.addEventListener('resize', updateDropdownPosition);
-		window.addEventListener('scroll', updateDropdownPosition, true);
-
-		return () => {
-			window.removeEventListener('resize', updateDropdownPosition);
-			window.removeEventListener('scroll', updateDropdownPosition, true);
-		};
-	}, [isOpen, query]);
-
-	const filteredOptions = useMemo(
-		() => options.filter(option =>
-			getOptionLabel(option)
-				.toLowerCase()
-				.includes(query.toLowerCase())
-		),
-		[options, query]
-	);
-
-	return (
-		<div className={`project-create__field ${error ? 'project-create__field--error' : ''}`}>
-			<label className="project-create__label">
-				<span>{label}</span>
-			</label>
-
-			<div className="project-create__autocomplete" ref={controlRef}>
-				<button
-					type="button"
-					className={`project-create__select ${selectedOption ? 'project-create__select--filled' : ''}`}
-					onClick={() => setIsOpen(open => !open)}
-					aria-invalid={!!error}
-				>
-					<span className="project-create__select-value">
-						{selectedOption ? getOptionLabel(selectedOption) : 'Selecciona una opción'}
-					</span>
-					<span className="project-create__select-chevron">⌄</span>
-				</button>
-
-					{isOpen && dropdownPosition && createPortal(
-						<div
-							className="project-create__dropdown project-create__dropdown--select project-create__dropdown--floating"
-							style={{
-								position: 'fixed',
-								top: dropdownPosition.top,
-								left: dropdownPosition.left,
-								width: dropdownPosition.width,
-							}}
-						>
-							<input
-								type="text"
-								className="project-create__dropdown-search"
-								value={query}
-								onChange={event => setQuery(event.target.value)}
-								placeholder={`Buscar ${label.toLowerCase()}`}
-							/>
-
-							<div className="project-create__dropdown-list">
-								{filteredOptions.length === 0 ? (
-									<p className="project-create__empty-state">
-										No hay resultados para ese filtro.
-									</p>
-								) : filteredOptions.map(option => (
-									<button
-										type="button"
-										key={option.id}
-										onMouseDown={event => event.preventDefault()}
-										onClick={() => {
-											onChange(option);
-											setQuery(getOptionLabel(option));
-											setIsOpen(false);
-										}}
-										className="project-create__option"
-									>
-											{getOptionLabel(option)}
-										</button>
-								))}
-							</div>
-						</div>,
-						document.body
-					)}
-			</div>
-
-			{error && (
-				<span className="project-create__error" role="alert">
-					⚠ {error}
-				</span>
-			)}
-			{helpText && !error && <p className="project-create__help">{helpText}</p>}
-		</div>
-	);
-}
-
-type CheckboxMultiFieldProps = {
-	label: string;
-	placeholder: string;
-	options: CatalogOption[];
-	selected: CatalogOption[];
-	onToggle: (option: CatalogOption, checked: boolean) => void;
-	helpText?: string;
-	error?: string;
-};
-
-function CheckboxMultiField({
-	label,
-	placeholder,
-	options,
-	selected,
-	onToggle,
-	helpText,
-	error,
-}: CheckboxMultiFieldProps) {
-	const [query, setQuery] = useState('');
-
-	const filteredOptions = useMemo(
-		() => options.filter(option =>
-			getOptionLabel(option)
-				.toLowerCase()
-				.includes(query.toLowerCase())
-		),
-		[options, query]
-	);
-
-	return (
-		<div className={`project-create__field project-create__field--full ${error ? 'project-create__field--error' : ''}`}>
-			<label className="project-create__label">
-				<span>{label}</span>
-				<input
-					type="text"
-					value={query}
-					onChange={event => setQuery(event.target.value)}
-					placeholder={placeholder}
-				/>
-			</label>
-
-			<div className="project-create__checkbox-summary">
-				{selected.length === 0
-					? 'Sin selecciones'
-					: `${selected.length} seleccionadas`}
-			</div>
-
-			<div className="project-create__checkbox-list">
-				{filteredOptions.length === 0 ? (
-					<p className="project-create__empty-state">
-						No hay resultados para ese filtro.
-					</p>
-				) : filteredOptions.map(option => {
-					const checked = selected.some(item => item.id === option.id);
-
-					return (
-						<label className="project-create__checkbox-item" key={option.id}>
-							<input
-								type="checkbox"
-								checked={checked}
-								onChange={event => onToggle(option, event.target.checked)}
-							/>
-							<span>{getOptionLabel(option)}</span>
-						</label>
-					);
-				})}
-			</div>
-
-			{error && (
-				<span className="project-create__error" role="alert">
-					⚠ {error}
-				</span>
-			)}
-			{helpText && !error && <p className="project-create__help">{helpText}</p>}
-		</div>
-	);
-}
 
 function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormProps) {
 	const [form, setForm] = useState<ProjectForm>(initialForm);
-	const [loadingCatalogs, setLoadingCatalogs] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [selectedTypeInitiative, setSelectedTypeInitiative] = useState<CatalogOption | null>(null);
 	const [selectedManagementArea, setSelectedManagementArea] = useState<CatalogOption | null>(null);
@@ -310,58 +51,25 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 	const [selectedUniversityBody, setSelectedUniversityBody] = useState<CatalogOption | null>(null);
 	const [selectedRegions, setSelectedRegions] = useState<CatalogOption[]>([]);
 	const [selectedUniversities, setSelectedUniversities] = useState<CatalogOption[]>([]);
-	const [typeInitiatives, setTypeInitiatives] = useState<CatalogOption[]>([]);
-	const [managementAreas, setManagementAreas] = useState<CatalogOption[]>([]);
-	const [metaPopulations, setMetaPopulations] = useState<CatalogOption[]>([]);
-	const [people, setPeople] = useState<CatalogOption[]>([]);
-	const [universityBodies, setUniversityBodies] = useState<CatalogOption[]>([]);
-	const [regions, setRegions] = useState<CatalogOption[]>([]);
-	const [universities, setUniversities] = useState<CatalogOption[]>([]);
-	const [idUser, setIdUser] = useState<number | null>(null);
+	const {
+		typeInitiatives,
+		managementAreas,
+		metaPopulations,
+		people,
+		universityBodies,
+		regions,
+		universities,
+		loading: loadingCatalogs,
+	} = useCatalogs();
 	const [formErrors, setFormErrors] = useState<FormErrors>({});
 	const isEditMode = Boolean(project);
+	const panelRef = useRef<HTMLDivElement>(null);
+	const { userId } = useAuth();
+
+	useModalFocus(true, panelRef, onClose);
 
 	useEffect(() => {
-		setIdUser(decodeUserIdFromToken());
-	}, []);
-
-	useEffect(() => {
-		const loadCatalogs = async () => {
-			try {
-				setLoadingCatalogs(true);
-
-				const [typeInitiativesResponse, managementAreasResponse, metaPopulationsResponse, peopleResponse, universityBodiesResponse, regionsResponse, universitiesResponse] = await Promise.all([
-					gettypeInitiative(),
-					getclassificationManagementArea(),
-					getClassificationMetaPopulation(),
-					getPersonInCharge(),
-					getUniversityBodies(),
-					getRegion(),
-					getUniversities(),
-				]);
-
-				setTypeInitiatives(typeInitiativesResponse);
-				setManagementAreas(managementAreasResponse);
-				setMetaPopulations(metaPopulationsResponse);
-				setPeople(peopleResponse);
-				setUniversityBodies(universityBodiesResponse);
-				setRegions(regionsResponse);
-				setUniversities(universitiesResponse);
-			} catch (error) {
-				console.error(error);
-				toast.error('No se pudieron cargar los catálogos');
-			} finally {
-				setLoadingCatalogs(false);
-			}
-		};
-
-		loadCatalogs();
-	}, []);
-
-	useEffect(() => {
-		if (loadingCatalogs) {
-			return;
-		}
+		if (loadingCatalogs) return;
 
 		if (!project) {
 			setForm(initialForm);
@@ -378,6 +86,9 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 		setForm({
 			name: project.name ?? '',
 			general_objective: project.general_objective ?? '',
+			codigo: project.codigo ?? '',
+			fecha_inicio: toDateInputValue(project.fecha_inicio),
+			fecha_fin: toDateInputValue(project.fecha_fin),
 			regions: project.projects_commissions_region?.map(item => item.region.id) ?? [],
 			universities: project.projects_commissions_university?.map(item => item.university.id) ?? [],
 		});
@@ -419,59 +130,53 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 		universities,
 	]);
 
-	// Validaciones
-	const validateField = (name: string, value: string): string | null => {
-		switch (name) {
-			case 'name':
-				if (!value.trim()) return 'El nombre del proyecto es requerido';
-				if (value.trim().length < 5) return 'El nombre debe tener al menos 5 caracteres';
-				if (value.length > 150) return 'El nombre no puede exceder 150 caracteres';
-				return null;
-
-			case 'general_objective':
-				if (!value.trim()) return 'El objetivo general es requerido';
-				if (value.trim().length < 20) return 'El objetivo debe tener al menos 20 caracteres';
-				if (value.length > 2000) return 'El objetivo no puede exceder 2000 caracteres';
-				return null;
-
-			default:
-				return null;
-		}
-	};
-
 	const handleFieldChange = (
 		event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
 	) => {
 		const { name, value } = event.target;
-		setForm(current => ({
-			...current,
-			[name]: value,
-		}));
-		// No validar mientras se escribe
-	};
-
-	const handleFieldBlur = () => {
-		// No validar en blur, solo al hacer submit
+		setForm(current => ({ ...current, [name]: value }));
 	};
 
 	const validateForm = (): boolean => {
 		const errors: FormErrors = {};
 		let isValid = true;
 
-		// Validar campos de texto
-		const nameError = validateField('name', form.name);
-		if (nameError) {
-			errors.name = nameError;
+		if (!form.name.trim()) {
+			errors.name = 'El nombre del proyecto es requerido';
+			isValid = false;
+		} else if (form.name.trim().length < 5) {
+			errors.name = 'El nombre debe tener al menos 5 caracteres';
+			isValid = false;
+		} else if (form.name.length > 150) {
+			errors.name = 'El nombre no puede exceder 150 caracteres';
 			isValid = false;
 		}
 
-		const objectiveError = validateField('general_objective', form.general_objective);
-		if (objectiveError) {
-			errors.general_objective = objectiveError;
+		if (!form.general_objective.trim()) {
+			errors.general_objective = 'El objetivo general es requerido';
+			isValid = false;
+		} else if (form.general_objective.trim().length < 20) {
+			errors.general_objective = 'El objetivo debe tener al menos 20 caracteres';
+			isValid = false;
+		} else if (form.general_objective.length > 2000) {
+			errors.general_objective = 'El objetivo no puede exceder 2000 caracteres';
 			isValid = false;
 		}
 
-		// Validar selects requeridos
+		if (form.codigo && form.codigo.trim().length > 50) {
+			errors.codigo = 'El código no puede tener más de 50 caracteres';
+			isValid = false;
+		}
+
+		if (form.fecha_inicio && form.fecha_fin) {
+			const inicio = new Date(form.fecha_inicio);
+			const fin = new Date(form.fecha_fin);
+			if (fin < inicio) {
+				errors.fecha_fin = 'La fecha de fin no puede ser anterior a la fecha de inicio';
+				isValid = false;
+			}
+		}
+
 		if (!selectedTypeInitiative) {
 			errors.id_type_initiative = 'Selecciona el tipo de iniciativa';
 			isValid = false;
@@ -481,7 +186,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 			isValid = false;
 		}
 		if (!selectedMetaPopulation) {
-			errors.id_clasification_meta_population = 'Selecciona la meta población';
+			errors.id_clasification_meta_population = 'Selecciona la población meta';
 			isValid = false;
 		}
 		if (!selectedPerson) {
@@ -502,28 +207,23 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 		}
 
 		setFormErrors(errors);
-
 		return isValid;
 	};
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
-		// Validar formulario completo
 		if (!validateForm()) {
 			toast.error('Por favor corrige los errores en el formulario');
-			// Scroll al inicio del formulario para ver los errores
-			const formElement = document.querySelector('.project-create__form');
-			formElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 			return;
 		}
 
-		if (!idUser) {
+		if (!userId) {
 			toast.error('Error de autenticación. Inicia sesión nuevamente.');
 			return;
 		}
 
-		// Cast seguro porque ya validamos que no son null
 		const payload: ProjectForm = {
 			name: form.name.trim(),
 			general_objective: form.general_objective.trim(),
@@ -532,7 +232,10 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 			id_clasification_meta_population: selectedMetaPopulation!.id,
 			id_person_in_charge: selectedPerson!.id,
 			id_university_body: selectedUniversityBody!.id,
-			id_user: idUser,
+			id_user: userId,
+			codigo: form.codigo?.trim() || undefined,
+			fecha_inicio: form.fecha_inicio || undefined,
+			fecha_fin: form.fecha_fin || undefined,
 			regions: selectedRegions.map(region => region.id),
 			universities: selectedUniversities.map(university => university.id),
 		};
@@ -562,7 +265,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 		<div className="project-create" role="dialog" aria-modal="true">
 			<div className="project-create__backdrop" onClick={onClose} />
 
-			<div className="project-create__panel" onClick={event => event.stopPropagation()}>
+			<div className="project-create__panel" ref={panelRef} tabIndex={-1} onClick={event => event.stopPropagation()}>
 				<div className="project-create__header">
 					<div>
 						<p className="project-create__eyebrow">{isEditMode ? 'Editar proyecto' : 'Nuevo proyecto'}</p>
@@ -586,7 +289,6 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 									name="name"
 									value={form.name}
 									onChange={handleFieldChange}
-									onBlur={handleFieldBlur}
 									placeholder="Ej: Programa de vinculación con la comunidad"
 									minLength={5}
 									maxLength={150}
@@ -608,7 +310,6 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 									name="general_objective"
 									value={form.general_objective}
 									onChange={handleFieldChange}
-									onBlur={handleFieldBlur}
 									placeholder="Describe el objetivo general del proyecto (mínimo 20 caracteres)"
 									minLength={20}
 									maxLength={2000}
@@ -626,7 +327,66 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							</label>
 						</div>
 
-						<SelectField
+						<div className={`project-create__field${formErrors.codigo ? ' project-create__field--error' : ''}`}>
+							<label className="project-create__label">
+								<span>Código</span>
+								<input
+									type="text"
+									name="codigo"
+									value={form.codigo ?? ''}
+									onChange={handleFieldChange}
+									placeholder="Ej: PROY-2024-001"
+									maxLength={50}
+									aria-invalid={!!formErrors.codigo}
+									aria-describedby={formErrors.codigo ? 'codigo-error' : undefined}
+								/>
+								{formErrors.codigo && (
+									<span className="project-create__error" id="codigo-error" role="alert">
+										⚠ {formErrors.codigo}
+									</span>
+								)}
+							</label>
+						</div>
+
+						<div className={`project-create__field${formErrors.fecha_inicio ? ' project-create__field--error' : ''}`}>
+							<label className="project-create__label">
+								<span>Fecha de inicio</span>
+								<input
+									type="date"
+									name="fecha_inicio"
+									value={form.fecha_inicio ?? ''}
+									onChange={handleFieldChange}
+									aria-invalid={!!formErrors.fecha_inicio}
+									aria-describedby={formErrors.fecha_inicio ? 'fecha-inicio-error' : undefined}
+								/>
+								{formErrors.fecha_inicio && (
+									<span className="project-create__error" id="fecha-inicio-error" role="alert">
+										⚠ {formErrors.fecha_inicio}
+									</span>
+								)}
+							</label>
+						</div>
+
+						<div className={`project-create__field${formErrors.fecha_fin ? ' project-create__field--error' : ''}`}>
+							<label className="project-create__label">
+								<span>Fecha de fin</span>
+								<input
+									type="date"
+									name="fecha_fin"
+									value={form.fecha_fin ?? ''}
+									onChange={handleFieldChange}
+									aria-invalid={!!formErrors.fecha_fin}
+									aria-describedby={formErrors.fecha_fin ? 'fecha-fin-error' : undefined}
+								/>
+								{formErrors.fecha_fin && (
+									<span className="project-create__error" id="fecha-fin-error" role="alert">
+										⚠ {formErrors.fecha_fin}
+									</span>
+								)}
+							</label>
+						</div>
+
+						<AutocompleteSelect
 							label="Tipo de iniciativa"
 							options={typeInitiatives}
 							value={selectedTypeInitiative?.id ?? null}
@@ -634,7 +394,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							error={formErrors.id_type_initiative}
 						/>
 
-						<SelectField
+						<AutocompleteSelect
 							label="Área de gestión"
 							options={managementAreas}
 							value={selectedManagementArea?.id ?? null}
@@ -642,15 +402,15 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							error={formErrors.id_classification_management_area}
 						/>
 
-						<SelectField
-							label="Meta población"
+						<AutocompleteSelect
+							label="Población meta"
 							options={metaPopulations}
 							value={selectedMetaPopulation?.id ?? null}
 							onChange={setSelectedMetaPopulation}
 							error={formErrors.id_clasification_meta_population}
 						/>
 
-						<SelectField
+						<AutocompleteSelect
 							label="Persona a cargo"
 							options={people}
 							value={selectedPerson?.id ?? null}
@@ -658,7 +418,7 @@ function ProjectCreateForm({ onClose, onCreated, project }: ProjectCreateFormPro
 							error={formErrors.id_person_in_charge}
 						/>
 
-						<SelectField
+						<AutocompleteSelect
 							label="Unidad universitaria"
 							options={universityBodies}
 							value={selectedUniversityBody?.id ?? null}

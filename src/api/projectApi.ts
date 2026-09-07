@@ -1,49 +1,27 @@
-import type { ProjectFilters, ProjectForm } from '../models/Project';
+import type { Project, ProjectForm } from '../models/Project';
+import type { ApiResponse } from '../models/ApiResponse';
 import api from './axios';
 
 export const getProjects =
-	async () => {
+	async (signal?: AbortSignal): Promise<Project[]> => {
 
 		const response =
-			await api.get(
-				'/projectCommission'
+			await api.get<ApiResponse<Project[]>>(
+				'/projectCommission',
+				{ signal }
 			);
 
-		return response.data?.data ?? response.data ?? [];
+		return response.data?.data ?? [];
 	};
 
 export const getProjectById =
-	async (id: string) => {
+	async (id: string): Promise<Project | null> => {
 		const response =
-			await api.get(
+			await api.get<ApiResponse<Project>>(
 				`/projectCommission/${id}`
 			);
-		return response.data?.data ?? response.data ?? null;
+		return response.data?.data ?? null;
 	}
-
-export const getProjectComissionByFilters =
-	async (filters: ProjectFilters) => {
-		const queryParams = new URLSearchParams();
-		const normalizedFilters = Object.fromEntries(
-			Object.entries(filters)
-				.filter(([, values]) => Array.isArray(values) && values.length > 0)
-				.map(([key, values]) => [key, values.map((value: number) => Number(value))])
-		);
-
-		Object.entries(normalizedFilters).forEach(([key, values]) => {
-			(values as number[]).forEach((value: number) => {
-				queryParams.append(key, String(value));
-			});
-		});
-
-		const response =
-			await api.get(
-				`/projectCommission/getByFilters?${queryParams.toString()}`
-			);
-
-		return response.data?.data ?? response.data ?? [];
-	};
-
 
 export const createProject =
 	async (projectData: ProjectForm) => {

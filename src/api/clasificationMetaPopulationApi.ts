@@ -1,22 +1,24 @@
 import api from './axios';
+import type { CatalogItem } from '../models/CatalogItem';
+import type { ApiResponse } from '../models/ApiResponse';
 
 
-export const getClassificationMetaPopulation = 
-    async () => {
-        const response = 
-            await api.get(
-                '/clasificationMetaPopulation'
+export const getClassificationMetaPopulation =
+    async (signal?: AbortSignal): Promise<CatalogItem[]> => {
+        const response =
+            await api.get<ApiResponse<CatalogItem[]>>(
+                '/clasificationMetaPopulation',
+                { signal }
             );
-        return response.data?.data ?? response.data ?? [];
+        return response.data?.data ?? [];
     }
 
 
 export const getClassificationMetaPopulationById =
-    async (id: string) => {
+    async (id: string): Promise<CatalogItem | null> => {
         const response =
-            await api.get(
+            await api.get<ApiResponse<CatalogItem>>(
                 `/clasificationMetaPopulation/${id}`
             );
-        return response.data?.data ?? response.data ?? null;
+        return response.data?.data ?? null;
     }
-    

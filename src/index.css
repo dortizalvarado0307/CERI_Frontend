@@ -82,16 +82,6 @@ a:hover {
   color: var(--color-primary-900);
 }
 
-/* Scrollbar Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-neutral-400) var(--color-neutral-100);
-}
-
-html.dark * {
-  scrollbar-color: var(--color-neutral-600) var(--color-neutral-800);
-}
-
 /* ============================================
    SKELETON LOADERS - Animación de carga
    ============================================ */
@@ -355,4 +345,75 @@ html.dark .badge--neutral {
   border-radius: 50%;
   background: currentColor;
   opacity: 0.7;
+}
+
+/* Shared pagination styles */
+.crud-table__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+html.dark .crud-table__pagination {
+  border-top-color: var(--color-neutral-700);
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+.crud-table__page-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+html.dark .crud-table__page-btn {
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-neutral-800) 100%);
+  border-color: var(--color-neutral-600);
+  color: var(--color-text-primary);
+}
+
+.crud-table__page-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #2563eb;
+  color: #1e40af;
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.15);
+  transform: translateY(-2px);
+}
+
+html.dark .crud-table__page-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--color-neutral-800) 0%, var(--color-neutral-700) 100%);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+.crud-table__page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.crud-table__page-info {
+  font-weight: 600;
+  color: #475569;
+  font-size: var(--font-size-sm);
+  padding: 8px 14px;
+  background: #e2e8f0;
+  border-radius: var(--radius-full);
+}
+
+html.dark .crud-table__page-info {
+  background: var(--color-neutral-700);
+  color: var(--color-text-secondary);
 }

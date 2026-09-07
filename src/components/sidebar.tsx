@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { DarkModeToggle } from './ui/DarkModeToggle';
+import { useAuth } from '../context/AuthContext';
 import './sidebar.css';
 import logo from '../assets/Logo.png';
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { logout, isAdmin } = useAuth();
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const handleLogout = () => {
+    logout();
     navigate('/', { replace: true });
   };
 
@@ -42,11 +44,18 @@ export default function Sidebar() {
           {!collapsed && <span>Personas</span>}
         </Link>
 
+        {isAdmin && (
+          <Link to="/users" className="sidebar__item">
+            <span aria-hidden="true">⚙️</span>
+            {!collapsed && <span>Usuarios</span>}
+          </Link>
+        )}
+
         <div className="sidebar__divider" />
 
         <button
           className="sidebar__item sidebar__logout"
-          onClick={logout}
+          onClick={handleLogout}
           aria-label="Cerrar sesión"
         >
           <span aria-hidden="true">⏻</span>

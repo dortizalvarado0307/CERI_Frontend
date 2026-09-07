@@ -1,11 +1,12 @@
 import { Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({
   children
-}: any) {
+}: { children: ReactNode }) {
 
-  const token =
-    localStorage.getItem('token');
+  const { token } = useAuth();
 
   return token
     ? children

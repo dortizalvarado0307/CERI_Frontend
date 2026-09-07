@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { login } from '../../api/authApi';
+import { useAuth } from '../../context/AuthContext';
 
 import './login.css';
 import logo from '../../assets/Logo.png';
@@ -10,6 +11,7 @@ import logo from '../../assets/Logo.png';
 function Login() {
 
 	const navigate = useNavigate();
+	const { login: authLogin } = useAuth();
 
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -27,10 +29,7 @@ function Login() {
 				password
 			);
 
-			localStorage.setItem(
-				'token',
-				response.token
-			);
+			authLogin(response.data.token);
 
 			toast.success(
 				'Bienvenido'

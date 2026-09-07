@@ -248,7 +248,9 @@ html.dark .project-create__field--error .project-create__select {
 	background: #fff;
 	box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
 	max-height: 320px;
-	overflow: auto;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
 html.dark .project-create__dropdown--select {
@@ -292,6 +294,8 @@ html.dark .project-create__dropdown-search:focus {
 .project-create__dropdown-list {
 	display: grid;
 	gap: 8px;
+	overflow-y: auto;
+	min-height: 0;
 }
 
 .project-create__dropdown-list .project-create__option {

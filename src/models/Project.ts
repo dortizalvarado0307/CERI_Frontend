@@ -2,6 +2,9 @@ export interface Project {
 id: number;
 name: string;
 general_objective: string;
+codigo?: string;
+fecha_inicio?: string;
+fecha_fin?: string;
 
 
 type_initiative?: {
@@ -58,6 +61,9 @@ export interface ProjectForm {
 	id_person_in_charge?: number;
 	id_university_body?: number;
 	id_user?: number;
+	codigo?: string;
+	fecha_inicio?: string;
+	fecha_fin?: string;
 	regions: number[];
 	universities: number[];
 }

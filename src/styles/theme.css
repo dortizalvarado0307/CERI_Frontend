@@ -373,6 +373,16 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background: var(--color-neutral-500);
 }
 
+/* Scrollbar Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-400) var(--color-neutral-100);
+}
+
+html.dark * {
+  scrollbar-color: var(--color-neutral-600) var(--color-neutral-800);
+}
+
 /* ============================================
    SELECTION
    ============================================ */

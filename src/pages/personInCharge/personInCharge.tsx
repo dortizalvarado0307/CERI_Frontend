@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { createPersonInCharge, getPersonInCharge } from '../../api/personInChargeApi';
 import Layout from '../../components/layout';
+import { Pagination } from '../../components/ui/Pagination';
+import { usePagination } from '../../hooks/usePagination';
 import type { PersonInCharge, PersonInChargeForm } from '../../models/PersonInCharge';
 import logo from '../../assets/Logo.png';
 
@@ -19,48 +21,32 @@ function PersonInChargePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState<PersonInChargeForm>(initialFormState);
   const [formErrors, setFormErrors] = useState<Partial<PersonInChargeForm>>({});
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    loadPeople();
-  }, []);
+  const { currentPage, setCurrentPage, totalPages, paginatedItems } = usePagination(people, itemsPerPage);
 
-  const loadPeople = async () => {
+  const loadPeople = async (signal?: AbortSignal) => {
     try {
-      const response = await getPersonInCharge();
+      const response = await getPersonInCharge(signal);
+      if (signal?.aborted) return;
       setPeople(Array.isArray(response) ? response : []);
     } catch (error) {
+      if (signal?.aborted) return;
       console.error(error);
       toast.error('No se pudo cargar la lista de personas');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
-  const totalPeople = useMemo(() => people.length, [people]);
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(totalPeople / itemsPerPage)),
-    [totalPeople]
-  );
-
-  const paginatedPeople = useMemo(
-    () => people.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage
-    ),
-    [currentPage, people]
-  );
-
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+    const controller = new AbortController();
+    loadPeople(controller.signal);
+    return () => { controller.abort(); };
+  }, []);
 
-  // Validaciones
   const validateField = (name: string, value: string): string | null => {
     switch (name) {
       case 'name':
@@ -92,15 +78,7 @@ function PersonInChargePage() {
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
-
-    setFormData(current => ({
-      ...current,
-      [name]: value,
-    }));
-  };
-
-  const handleBlur = () => {
-    // No validar en blur, solo al hacer submit
+    setFormData(current => ({ ...current, [name]: value }));
   };
 
   const resetForm = () => {
@@ -112,7 +90,6 @@ function PersonInChargePage() {
     const errors: Partial<PersonInChargeForm> = {};
     let isValid = true;
 
-    // Validar todos los campos
     (['name', 'lastname', 'contact'] as const).forEach(field => {
       const error = validateField(field, formData[field] || '');
       if (error) {
@@ -122,14 +99,12 @@ function PersonInChargePage() {
     });
 
     setFormErrors(errors);
-
     return isValid;
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    // Validar formulario completo
     if (!validateForm()) {
       toast.error('Por favor corrige los errores en el formulario');
       return;
@@ -137,16 +112,13 @@ function PersonInChargePage() {
 
     try {
       setSaving(true);
-
-      // Datos normalizados
       const normalizedData: PersonInChargeForm = {
         name: formData.name.trim(),
         lastname: formData.lastname.trim(),
-        contact: formData.contact.replace(/\D/g, ''), // Solo dígitos
+        contact: formData.contact.replace(/\D/g, ''),
       };
 
       await createPersonInCharge(normalizedData);
-
       toast.success('Persona agregada correctamente');
       resetForm();
       setFormOpen(false);
@@ -202,7 +174,6 @@ function PersonInChargePage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  onBlur={handleBlur}
                   placeholder=" "
                   minLength={2}
                   maxLength={50}
@@ -224,7 +195,6 @@ function PersonInChargePage() {
                   name="lastname"
                   value={formData.lastname}
                   onChange={handleChange}
-                  onBlur={handleBlur}
                   placeholder=" "
                   minLength={2}
                   maxLength={100}
@@ -246,7 +216,6 @@ function PersonInChargePage() {
                   name="contact"
                   value={formData.contact}
                   onChange={handleChange}
-                  onBlur={handleBlur}
                   placeholder=" "
                   pattern="^[0-9+\-\s()]+$"
                   minLength={8}
@@ -265,10 +234,7 @@ function PersonInChargePage() {
                 <button
                   type="button"
                   className="people-form__secondary"
-                  onClick={() => {
-                    resetForm();
-                    setFormOpen(false);
-                  }}
+                  onClick={() => { resetForm(); setFormOpen(false); }}
                 >
                   ✕ Cancelar
                 </button>
@@ -283,9 +249,7 @@ function PersonInChargePage() {
                       <span className="spinner spinner--small" /> Guardando...
                     </>
                   ) : (
-                    <>
-                      ✓ Guardar persona
-                    </>
+                    <>✓ Guardar persona</>
                   )}
                 </button>
               </div>
@@ -313,7 +277,7 @@ function PersonInChargePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedPeople.map(person => (
+                  {paginatedItems.map(person => (
                     <tr key={person.id}>
                       <td>{person.name}</td>
                       <td>{person.lastname}</td>
@@ -325,31 +289,11 @@ function PersonInChargePage() {
             </div>
           )}
 
-          {!loading && totalPages > 1 && (
-            <div className="people-table__pagination">
-              <button
-                type="button"
-                className="people-table__page-btn"
-                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </button>
-
-              <span className="people-table__page-info">
-                Página {currentPage} de {totalPages}
-              </span>
-
-              <button
-                type="button"
-                className="people-table__page-btn"
-                onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Siguiente
-              </button>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </section>
       </div>
     </Layout>

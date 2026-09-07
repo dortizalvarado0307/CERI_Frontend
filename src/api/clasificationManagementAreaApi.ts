@@ -1,24 +1,22 @@
 import api from './axios';
+import type { CatalogItem } from '../models/CatalogItem';
+import type { ApiResponse } from '../models/ApiResponse';
 
-export const getclassificationManagementArea =
-    async () => {
+export const getClassificationManagementArea =
+    async (signal?: AbortSignal): Promise<CatalogItem[]> => {
         const response =
-            await api.get(
-                '/clasificationManagementArea'
+            await api.get<ApiResponse<CatalogItem[]>>(
+                '/clasificationManagementArea',
+                { signal }
             );
-        return response.data?.data ?? response.data ?? [];
+        return response.data?.data ?? [];
     };
 
 export const getClassificationManagementAreaById =
-    async(id: string) => {
+    async(id: string): Promise<CatalogItem | null> => {
         const response =
-            await api.get(
+            await api.get<ApiResponse<CatalogItem>>(
                 `/clasificationManagementArea/${id}`
             );
-        return response.data?.data ?? response.data ?? null;
+        return response.data?.data ?? null;
     }
-
-
-
-  
-

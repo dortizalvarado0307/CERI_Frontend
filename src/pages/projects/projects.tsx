@@ -1,151 +1,24 @@
-import { createPortal } from 'react-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import Layout from '../../components/layout.js';
-import { deleteProject, getProjects } from '../../api/projectApi.js';
-import * as TypeInitiativeApi from '../../api/typeInitiative.js';
-import * as ManagementAreaApi from '../../api/clasificationManagementAreaApi.js';
-import * as MetaPopulationApi from '../../api/clasificationMetaPopulationApi.js';
-import * as PersonInChargeApi from '../../api/personInChargeApi.js';
-import * as RegionApi from '../../api/regionApi.js';
-import * as UniversityApi from '../../api/universityApi.js';
+import Layout from '../../components/layout';
+import { deleteProject, getProjects } from '../../api/projectApi';
+import { exportProjectsPdf, exportProjectsExcel } from '../../utils/projectExport';
+import { Pagination } from '../../components/ui/Pagination';
+import { usePagination } from '../../hooks/usePagination';
 import logo from '../../assets/Logo.png';
-import type { Project, ProjectFilters } from '../../models/Project.js';
+import type { Project, ProjectFilters } from '../../models/Project';
+import type { CatalogOption } from '../../models/CatalogOption';
 import ProjectCreateForm from './projectCreateForm';
+import { ProjectDetailModal } from './projectDetailModal';
+import { useCatalogs } from '../../hooks/useCatalogs';
+import { AutocompleteSelect } from '../../components/ui/AutocompleteSelect';
 
 import './projects.css';
-import './projectDetail.css';
 
-type CatalogOption = {
-	id: number;
-	name: string;
-	lastname?: string;
+const formatDate = (date: string | Date | null | undefined): string => {
+	if (!date) return '';
+	return new Date(date).toLocaleDateString('es-ES');
 };
-
-type FilterSelectProps = {
-	label: string;
-	placeholder: string;
-	options: CatalogOption[];
-	value: number | null;
-	onChange: (option: CatalogOption | null) => void;
-};
-
-const getOptionLabel = (option: CatalogOption) =>
-	option.lastname ? `${option.name} ${option.lastname}` : option.name;
-
-function FilterSelect({ label, placeholder, options, value, onChange }: FilterSelectProps) {
-	const [isOpen, setIsOpen] = useState(false);
-	const [query, setQuery] = useState('');
-	const controlRef = useRef<HTMLDivElement | null>(null);
-	const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
-	const updateDropdownPosition = () => {
-		if (!controlRef.current) {
-			return;
-		}
-
-		const rect = controlRef.current.getBoundingClientRect();
-		setDropdownPosition({
-			top: rect.bottom + 8,
-			left: rect.left,
-			width: rect.width,
-		});
-	};
-
-	const selectedOption = useMemo(
-		() => options.find(option => option.id === value) ?? null,
-		[options, value]
-	);
-
-	useEffect(() => {
-		setQuery(selectedOption ? getOptionLabel(selectedOption) : '');
-		setIsOpen(false);
-	}, [selectedOption]);
-
-	useEffect(() => {
-		if (!isOpen || !controlRef.current) {
-			return;
-		}
-
-		updateDropdownPosition();
-
-		window.addEventListener('resize', updateDropdownPosition);
-		window.addEventListener('scroll', updateDropdownPosition, true);
-
-		return () => {
-			window.removeEventListener('resize', updateDropdownPosition);
-			window.removeEventListener('scroll', updateDropdownPosition, true);
-		};
-	}, [isOpen, query]);
-
-	const filteredOptions = useMemo(
-		() => options.filter(option => getOptionLabel(option).toLowerCase().includes(query.toLowerCase())),
-		[options, query]
-	);
-
-	return (
-		<div className="projects-filter">
-			<label className="projects-filter__label">
-				<span>{label}</span>
-			</label>
-
-			<div className="projects-filter__control" ref={controlRef}>
-				<button
-					type="button"
-					className={`projects-filter__select ${selectedOption ? 'projects-filter__select--filled' : ''}`}
-					onClick={() => setIsOpen(open => !open)}
-				>
-					<span className="projects-filter__select-value">
-						{selectedOption ? getOptionLabel(selectedOption) : placeholder}
-					</span>
-					<span className="projects-filter__select-chevron">⌄</span>
-				</button>
-
-					{isOpen && dropdownPosition && createPortal(
-						<div
-							className="projects-filter__dropdown projects-filter__dropdown--floating"
-							style={{
-								position: 'fixed',
-								top: dropdownPosition.top,
-								left: dropdownPosition.left,
-								width: dropdownPosition.width,
-							}}
-						>
-							<input
-								type="text"
-								className="projects-filter__search"
-								value={query}
-								onChange={event => setQuery(event.target.value)}
-								placeholder={`Buscar ${label.toLowerCase()}`}
-							/>
-
-							<div className="projects-filter__options">
-								{filteredOptions.length === 0 ? (
-									<p className="projects-filter__empty">No hay resultados.</p>
-								) : (
-									filteredOptions.map(option => (
-										<button
-											type="button"
-											key={option.id}
-											onMouseDown={event => event.preventDefault()}
-											onClick={() => {
-												onChange(option);
-												setQuery(getOptionLabel(option));
-												setIsOpen(false);
-											}}
-											className="projects-filter__option"
-										>
-												{getOptionLabel(option)}
-											</button>
-									))
-								)}
-							</div>
-						</div>,
-						document.body
-					)}
-			</div>
-		</div>
-	);
-}
 
 function Projects() {
 	const [projects, setProjects] = useState<Project[]>([]);
@@ -153,20 +26,22 @@ function Projects() {
 	const [formProject, setFormProject] = useState<Project | null | undefined>(undefined);
 	const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 	const [appliedFilters, setAppliedFilters] = useState<ProjectFilters>({});
-	const [loadingCatalogs, setLoadingCatalogs] = useState(true);
 	const [loadingProjects, setLoadingProjects] = useState(true);
 	const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
-	const [currentPage, setCurrentPage] = useState(1);
 	const [filtersExpanded, setFiltersExpanded] = useState(true);
+	const [exporting, setExporting] = useState(false);
 	const itemsPerPage = 6;
 
-	const [typeInitiatives, setTypeInitiatives] = useState<CatalogOption[]>([]);
-	const [managementAreas, setManagementAreas] = useState<CatalogOption[]>([]);
-	const [metaPopulations, setMetaPopulations] = useState<CatalogOption[]>([]);
-	const [people, setPeople] = useState<CatalogOption[]>([]);
-	const [universityBodies, setUniversityBodies] = useState<CatalogOption[]>([]);
-	const [regions, setRegions] = useState<CatalogOption[]>([]);
-	const [universities, setUniversities] = useState<CatalogOption[]>([]);
+	const {
+		typeInitiatives,
+		managementAreas,
+		metaPopulations,
+		people,
+		universityBodies,
+		regions,
+		universities,
+		loading: loadingCatalogs,
+	} = useCatalogs();
 
 	const [selectedTypeInitiative, setSelectedTypeInitiative] = useState<CatalogOption | null>(null);
 	const [selectedManagementArea, setSelectedManagementArea] = useState<CatalogOption | null>(null);
@@ -176,88 +51,18 @@ function Projects() {
 	const [selectedRegion, setSelectedRegion] = useState<CatalogOption | null>(null);
 	const [selectedUniversity, setSelectedUniversity] = useState<CatalogOption | null>(null);
 
-	useEffect(() => {
-		const loadProjects = async () => {
-			try {
-				setLoadingProjects(true);
-				const response = await getProjects();
-				setProjects(Array.isArray(response) ? response : []);
-			} catch (error) {
-				console.error(error);
-				toast.error('No se pudieron cargar los proyectos');
-			} finally {
-				setLoadingProjects(false);
-			}
-		};
-
-		loadProjects();
-	}, []);
-
-	useEffect(() => {
-		const loadCatalogs = async () => {
-			try {
-				setLoadingCatalogs(true);
-				const [typeInitiativesResponse, managementAreasResponse, metaPopulationsResponse, peopleResponse, universityBodiesResponse, regionsResponse, universitiesResponse] = await Promise.all([
-					TypeInitiativeApi.gettypeInitiative(),
-					ManagementAreaApi.getclassificationManagementArea(),
-					MetaPopulationApi.getClassificationMetaPopulation(),
-					PersonInChargeApi.getPersonInCharge(),
-					UniversityApi.getUniversityBodies(),
-					RegionApi.getRegion(),
-					UniversityApi.getUniversities(),
-				]);
-
-				setTypeInitiatives(typeInitiativesResponse);
-				setManagementAreas(managementAreasResponse);
-				setMetaPopulations(metaPopulationsResponse);
-				setPeople(peopleResponse);
-				setUniversityBodies(universityBodiesResponse);
-				setRegions(regionsResponse);
-				setUniversities(universitiesResponse);
-			} catch (error) {
-				console.error(error);
-				toast.error('No se pudieron cargar los catálogos');
-			} finally {
-				setLoadingCatalogs(false);
-			}
-		};
-
-		loadCatalogs();
-	}, []);
-
-	const buildFilters = () => {
-		const filters: ProjectFilters = {};
-
-		if (selectedTypeInitiative) filters.id_type_initiative = [selectedTypeInitiative.id];
-		if (selectedManagementArea) filters.id_classification_management_area = [selectedManagementArea.id];
-		if (selectedMetaPopulation) filters.id_clasification_meta_population = [selectedMetaPopulation.id];
-		if (selectedPerson) filters.id_person_in_charge = [selectedPerson.id];
-		if (selectedUniversityBody) filters.id_university_body = [selectedUniversityBody.id];
-		if (selectedRegion) filters.id_region = [selectedRegion.id];
-		if (selectedUniversity) filters.id_university = [selectedUniversity.id];
-
-		return filters;
-	};
-
-	const matchesFilterValues = (projectValue: number | undefined, allowedValues?: number[]) => {
-		if (!allowedValues?.length) {
-			return true;
-		}
-
-		return typeof projectValue === 'number' ? allowedValues.includes(projectValue) : false;
-	};
-
 	const filteredProjects = useMemo(() => {
-		if (Object.keys(appliedFilters).length === 0) {
-			return projects;
-		}
-
+		if (Object.keys(appliedFilters).length === 0) return projects;
 		return projects.filter(project => {
 			const regionIds = project.projects_commissions_region?.map(item => item.region.id) ?? [];
 			const universityIds = project.projects_commissions_university?.map(item => item.university.id) ?? [];
-
 			const matchesRegion = !appliedFilters.id_region?.length || appliedFilters.id_region.some(id => regionIds.includes(id));
 			const matchesUniversity = !appliedFilters.id_university?.length || appliedFilters.id_university.some(id => universityIds.includes(id));
+
+			const matchesFilterValues = (projectValue: number | undefined, allowedValues?: number[]) => {
+				if (!allowedValues?.length) return true;
+				return typeof projectValue === 'number' ? allowedValues.includes(projectValue) : false;
+			};
 
 			return matchesFilterValues(project.type_initiative?.id, appliedFilters.id_type_initiative)
 				&& matchesFilterValues(project.classification_management_area?.id, appliedFilters.id_classification_management_area)
@@ -268,6 +73,45 @@ function Projects() {
 				&& matchesUniversity;
 		});
 	}, [appliedFilters, projects]);
+
+	const {
+		currentPage,
+		setCurrentPage,
+		totalPages,
+		paginatedItems: paginatedProjects,
+	} = usePagination(filteredProjects, itemsPerPage);
+
+	useEffect(() => {
+		const controller = new AbortController();
+		const loadProjects = async () => {
+			try {
+				setLoadingProjects(true);
+				const response = await getProjects(controller.signal);
+				if (controller.signal.aborted) return;
+				setProjects(Array.isArray(response) ? response : []);
+			} catch (error) {
+				if (controller.signal.aborted) return;
+				console.error(error);
+				toast.error('No se pudieron cargar los proyectos');
+			} finally {
+				if (!controller.signal.aborted) setLoadingProjects(false);
+			}
+		};
+		loadProjects();
+		return () => { controller.abort(); };
+	}, []);
+
+	const buildFilters = (): ProjectFilters => {
+		const filters: ProjectFilters = {};
+		if (selectedTypeInitiative) filters.id_type_initiative = [selectedTypeInitiative.id];
+		if (selectedManagementArea) filters.id_classification_management_area = [selectedManagementArea.id];
+		if (selectedMetaPopulation) filters.id_clasification_meta_population = [selectedMetaPopulation.id];
+		if (selectedPerson) filters.id_person_in_charge = [selectedPerson.id];
+		if (selectedUniversityBody) filters.id_university_body = [selectedUniversityBody.id];
+		if (selectedRegion) filters.id_region = [selectedRegion.id];
+		if (selectedUniversity) filters.id_university = [selectedUniversity.id];
+		return filters;
+	};
 
 	const searchProjects = () => {
 		setAppliedFilters(buildFilters());
@@ -286,18 +130,6 @@ function Projects() {
 		setCurrentPage(1);
 	};
 
-	const totalPages = Math.max(1, Math.ceil(filteredProjects.length / itemsPerPage));
-	const paginatedProjects = useMemo(
-		() => filteredProjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
-		[filteredProjects, currentPage]
-	);
-
-	useEffect(() => {
-		if (currentPage > totalPages) {
-			setCurrentPage(totalPages);
-		}
-	}, [currentPage, totalPages]);
-
 	const refreshProjects = async () => {
 		try {
 			const response = await getProjects();
@@ -310,10 +142,7 @@ function Projects() {
 
 	const handleDeleteProject = async (project: Project) => {
 		const confirmed = window.confirm(`¿Eliminar el proyecto "${project.name}"?`);
-
-		if (!confirmed) {
-			return;
-		}
+		if (!confirmed) return;
 
 		try {
 			setDeletingProjectId(project.id);
@@ -343,10 +172,7 @@ function Projects() {
 					<button
 						type="button"
 						className="projects__new-btn"
-						onClick={() => {
-							setFormProject(null);
-							setCreateOpen(true);
-						}}
+						onClick={() => { setFormProject(null); setCreateOpen(true); }}
 					>
 						+ Nuevo Proyecto
 					</button>
@@ -391,18 +217,66 @@ function Projects() {
 						</div>
 					</div>
 
-					<div 
+					<div
 						className={`projects__filters-content ${filtersExpanded ? 'projects__filters-content--expanded' : ''}`}
 						style={{ display: filtersExpanded ? 'block' : 'none' }}
 					>
 						<div className="projects__filters-grid">
-							<FilterSelect label="Tipo de iniciativa" placeholder="Todos" options={typeInitiatives} value={selectedTypeInitiative?.id ?? null} onChange={setSelectedTypeInitiative} />
-							<FilterSelect label="Área de gestión" placeholder="Todos" options={managementAreas} value={selectedManagementArea?.id ?? null} onChange={setSelectedManagementArea} />
-							<FilterSelect label="Meta población" placeholder="Todos" options={metaPopulations} value={selectedMetaPopulation?.id ?? null} onChange={setSelectedMetaPopulation} />
-							<FilterSelect label="Persona a cargo" placeholder="Todos" options={people} value={selectedPerson?.id ?? null} onChange={setSelectedPerson} />
-							<FilterSelect label="Unidad universitaria" placeholder="Todos" options={universityBodies} value={selectedUniversityBody?.id ?? null} onChange={setSelectedUniversityBody} />
-							<FilterSelect label="Región" placeholder="Todos" options={regions} value={selectedRegion?.id ?? null} onChange={setSelectedRegion} />
-							<FilterSelect label="Universidad" placeholder="Todos" options={universities} value={selectedUniversity?.id ?? null} onChange={setSelectedUniversity} />
+							<AutocompleteSelect variant="filter" label="Tipo de iniciativa" placeholder="Todos" options={typeInitiatives} value={selectedTypeInitiative?.id ?? null} onChange={setSelectedTypeInitiative} />
+							<AutocompleteSelect variant="filter" label="Área de gestión" placeholder="Todos" options={managementAreas} value={selectedManagementArea?.id ?? null} onChange={setSelectedManagementArea} />
+							<AutocompleteSelect variant="filter" label="Población meta" placeholder="Todos" options={metaPopulations} value={selectedMetaPopulation?.id ?? null} onChange={setSelectedMetaPopulation} />
+							<AutocompleteSelect variant="filter" label="Persona a cargo" placeholder="Todos" options={people} value={selectedPerson?.id ?? null} onChange={setSelectedPerson} />
+							<AutocompleteSelect variant="filter" label="Unidad universitaria" placeholder="Todos" options={universityBodies} value={selectedUniversityBody?.id ?? null} onChange={setSelectedUniversityBody} />
+							<AutocompleteSelect variant="filter" label="Región" placeholder="Todos" options={regions} value={selectedRegion?.id ?? null} onChange={setSelectedRegion} />
+							<AutocompleteSelect variant="filter" label="Universidad" placeholder="Todos" options={universities} value={selectedUniversity?.id ?? null} onChange={setSelectedUniversity} />
+						</div>
+
+						<div className="projects__export-actions">
+							<button
+								type="button"
+								className="projects__export-btn projects__export-btn--pdf"
+								onClick={async () => {
+									if (filteredProjects.length === 0) {
+										toast.error('No hay proyectos para exportar');
+										return;
+									}
+									setExporting(true);
+									try {
+										await exportProjectsPdf(filteredProjects);
+										toast.success('PDF exportado correctamente');
+									} catch {
+										toast.error('Error al exportar PDF');
+									} finally {
+										setExporting(false);
+									}
+								}}
+								disabled={loadingProjects || exporting}
+							>
+								{exporting ? 'Exportando...' : '📄 Exportar PDF'}
+							</button>
+
+							<button
+								type="button"
+								className="projects__export-btn projects__export-btn--csv"
+								onClick={async () => {
+									if (filteredProjects.length === 0) {
+										toast.error('No hay proyectos para exportar');
+										return;
+									}
+									setExporting(true);
+									try {
+										await exportProjectsExcel(filteredProjects);
+										toast.success('Excel exportado correctamente');
+									} catch {
+										toast.error('Error al exportar Excel');
+									} finally {
+										setExporting(false);
+									}
+								}}
+								disabled={loadingProjects || exporting}
+							>
+								{exporting ? 'Exportando...' : '📊 Exportar Excel'}
+							</button>
 						</div>
 					</div>
 				</section>
@@ -443,11 +317,26 @@ function Projects() {
 												<div className="project-card__meta-item">
 													🏛️ {project.university_body?.name ?? 'Sin unidad'}
 												</div>
+												{project.codigo && (
+													<div className="project-card__meta-item">
+														🔖 {project.codigo}
+													</div>
+												)}
+												{project.fecha_inicio && (
+													<div className="project-card__meta-item">
+														📅 Inicio: {formatDate(project.fecha_inicio)}
+													</div>
+												)}
+												{project.fecha_fin && (
+													<div className="project-card__meta-item">
+														🏁 Fin: {formatDate(project.fecha_fin)}
+													</div>
+												)}
 											</div>
 
 											<div className="project-card__tags">
 												<span className="badge badge--primary">{project.classification_management_area?.name ?? 'Sin área'}</span>
-												<span className="badge badge--warning">{project.clasification_meta_population?.name ?? 'Sin meta'}</span>
+												<span className="badge badge--warning">{project.clasification_meta_population?.name ?? 'Sin población meta'}</span>
 											</div>
 
 											<div className="project-card__regions">
@@ -476,10 +365,7 @@ function Projects() {
 
 											<button
 												type="button"
-												onClick={() => {
-													setFormProject(project);
-													setCreateOpen(true);
-												}}
+												onClick={() => { setFormProject(project); setCreateOpen(true); }}
 												className="project-card__action project-card__action--edit"
 											>
 												✏️ Editar
@@ -498,19 +384,11 @@ function Projects() {
 								))}
 							</div>
 
-							{filteredProjects.length > itemsPerPage && (
-								<div className="projects__pagination">
-									<button type="button" className="projects__pagination-btn" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={currentPage === 1}>
-										← Anterior
-									</button>
-
-									<span className="projects__pagination-info">Página {currentPage} de {totalPages}</span>
-
-									<button type="button" className="projects__pagination-btn" onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
-										Siguiente →
-									</button>
-								</div>
-							)}
+							<Pagination
+								currentPage={currentPage}
+								totalPages={totalPages}
+								onPageChange={setCurrentPage}
+							/>
 						</>
 					)}
 				</section>
@@ -519,105 +397,16 @@ function Projects() {
 			{createOpen && (
 				<ProjectCreateForm
 					project={formProject}
-					onClose={() => {
-						setCreateOpen(false);
-						setFormProject(undefined);
-					}}
+					onClose={() => { setCreateOpen(false); setFormProject(undefined); }}
 					onCreated={refreshProjects}
 				/>
 			)}
 
 			{selectedProject && (
-				<div className="project-detail" role="dialog" aria-modal="true">
-					<div className="project-detail__backdrop" onClick={() => setSelectedProject(null)} />
-					<div className="project-detail__panel" onClick={event => event.stopPropagation()}>
-						<div className="project-detail__header">
-							<div>
-								<p className="project-detail__eyebrow">Detalle del proyecto</p>
-								<h2 className="project-detail__title">{selectedProject.name}</h2>
-							</div>
-							<button type="button" className="project-detail__close" onClick={() => setSelectedProject(null)}>
-								Cerrar
-							</button>
-						</div>
-
-						<div className="project-detail__body">
-							<div className="project-detail__grid">
-								<section className="project-detail__section project-detail__section--wide">
-									<h3>Objetivo general</h3>
-									<p className="project-detail__objective">{selectedProject.general_objective}</p>
-								</section>
-
-								<section className="project-detail__section">
-									<h3>Datos principales</h3>
-									<div className="project-detail__card">
-										<div className="project-detail__card-item">
-											<span className="project-detail__card-label">Tipo de iniciativa:</span>
-											<span className="project-detail__card-value">{selectedProject.type_initiative?.name ?? 'Sin dato'}</span>
-										</div>
-										<div className="project-detail__card-item">
-											<span className="project-detail__card-label">Área de gestión:</span>
-											<span className="project-detail__card-value">{selectedProject.classification_management_area?.name ?? 'Sin dato'}</span>
-										</div>
-										<div className="project-detail__card-item">
-											<span className="project-detail__card-label">Meta población:</span>
-											<span className="project-detail__card-value">{selectedProject.clasification_meta_population?.name ?? 'Sin dato'}</span>
-										</div>
-									</div>
-								</section>
-
-								<section className="project-detail__section">
-									<h3>Responsables</h3>
-									<div className="project-detail__card">
-										<div className="project-detail__card-item">
-											<span className="project-detail__card-label">Persona a cargo:</span>
-											<span className="project-detail__card-value">{selectedProject.person_in_charge ? `${selectedProject.person_in_charge.name} ${selectedProject.person_in_charge.lastname}` : 'Sin dato'}</span>
-										</div>
-										<div className="project-detail__card-item">
-											<span className="project-detail__card-label">Unidad universitaria:</span>
-											<span className="project-detail__card-value">{selectedProject.university_body?.name ?? 'Sin dato'}</span>
-										</div>
-									</div>
-								</section>
-
-								<section className="project-detail__section project-detail__section--wide">
-									<h3>Clasificaciones</h3>
-									<div className="project-detail__tags">
-										<span className="project-detail__tag">{selectedProject.classification_management_area?.name}</span>
-										<span className="project-detail__tag">{selectedProject.clasification_meta_population?.name}</span>
-										<span className="project-detail__tag">{selectedProject.type_initiative?.name}</span>
-									</div>
-								</section>
-
-								<section className="project-detail__section">
-									<h3>Regiones</h3>
-									{selectedProject.projects_commissions_region?.length ? (
-										<ul className="project-detail__list">
-											{selectedProject.projects_commissions_region.map(item => (
-												<li key={item.id}>{item.region.name}</li>
-											))}
-										</ul>
-									) : (
-										<p className="project-detail__empty">Sin regiones asociadas.</p>
-									)}
-								</section>
-
-								<section className="project-detail__section">
-									<h3>Universidades</h3>
-									{selectedProject.projects_commissions_university?.length ? (
-										<ul className="project-detail__list">
-											{selectedProject.projects_commissions_university.map(item => (
-												<li key={item.id}>{item.university.name}</li>
-											))}
-										</ul>
-									) : (
-										<p className="project-detail__empty">Sin universidades asociadas.</p>
-									)}
-								</section>
-							</div>
-						</div>
-					</div>
-				</div>
+				<ProjectDetailModal
+					project={selectedProject}
+					onClose={() => setSelectedProject(null)}
+				/>
 			)}
 		</Layout>
 	);
